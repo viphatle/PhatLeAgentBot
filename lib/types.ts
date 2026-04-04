@@ -1,6 +1,8 @@
 export type WatchItem = {
   id: string;
   symbol: string;
+  /** Giá đã mua (tuỳ chọn), đơn vị VND/cp */
+  buy_price?: number;
   /** Tên công ty (tự lấy từ Yahoo longName / shortName) */
   display_name: string;
   short_name?: string;

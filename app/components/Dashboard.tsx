@@ -92,7 +92,7 @@ export function Dashboard() {
     <main className="mx-auto max-w-3xl px-4 py-10">
       <header className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-          Theo dõi cổ phiếu — chỉ nhập mã
+          DANH SÁCH THEO DÕI CHỨNG KHOÁN
         </h1>
         <p className="mt-2 max-w-xl text-sm text-muted">
           Next.js serverless trên Vercel — watchlist/settings lưu trên Redis. Giá thị trường:{" "}
@@ -116,11 +116,14 @@ export function Dashboard() {
           items={items}
           quotes={quotes}
           loadingIds={loading}
-          onAdd={async (symbol) => {
+          onAdd={async (symbol, buyPrice) => {
             const r = await fetch("/api/stocks", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ symbol }),
+              body: JSON.stringify({
+                symbol,
+                buy_price: buyPrice,
+              }),
             });
             if (!r.ok) {
               const j = await r.json().catch(() => ({}));

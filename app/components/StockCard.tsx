@@ -23,6 +23,13 @@ export function StockCard({
 }) {
   const up = quote ? quote.change >= 0 : true;
   const color = quote ? (up ? "text-up" : "text-down") : "text-muted";
+  const hasBuyPrice = Number.isFinite(item.buy_price);
+  const buyPrice = hasBuyPrice ? Number(item.buy_price) : undefined;
+  const hasPnl = Boolean(quote && buyPrice);
+  const pnlValue = hasPnl && quote && buyPrice ? quote.price - buyPrice : null;
+  const pnlPct = hasPnl && quote && buyPrice ? ((quote.price - buyPrice) / buyPrice) * 100 : null;
+  const pnlUp = pnlValue !== null ? pnlValue >= 0 : true;
+  const pnlColor = pnlValue !== null ? (pnlUp ? "text-up" : "text-down") : "text-muted";
 
   const sub = [item.short_name, item.full_exchange || item.exchange, item.yahoo_symbol]
     .filter(Boolean)
@@ -58,6 +65,23 @@ export function StockCard({
               </span>
             )}
           </span>
+        )}
+      </td>
+      <td className="py-3 pr-2 text-sm align-top">
+        {!buyPrice && <span className="text-muted">—</span>}
+        {buyPrice && (
+          <div>
+            <div className="font-mono">{buyPrice.toLocaleString("vi-VN")}</div>
+            {pnlValue === null || pnlPct === null ? (
+              <div className="text-xs text-muted">Chưa có giá thị trường</div>
+            ) : (
+              <div className={`text-xs ${pnlColor}`}>
+                {pnlUp ? "+" : ""}
+                {pnlValue.toLocaleString("vi-VN")} ({pnlUp ? "+" : ""}
+                {pnlPct.toFixed(2)}%)
+              </div>
+            )}
+          </div>
         )}
       </td>
       <td className="py-3 text-right align-top">

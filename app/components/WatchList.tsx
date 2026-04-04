@@ -13,7 +13,7 @@ export function WatchList({
   items: WatchItem[];
   quotes: Record<string, QuoteView>;
   loadingIds: Record<string, boolean>;
-  onAdd: (symbol: string) => Promise<void>;
+  onAdd: (symbol: string, buyPrice?: number) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
   return (
@@ -26,8 +26,14 @@ export function WatchList({
           const form = e.currentTarget;
           const fd = new FormData(form);
           const symbol = String(fd.get("symbol") ?? "").trim();
+          const rawBuyPrice = String(fd.get("buy_price") ?? "").trim();
+          const buyPrice = rawBuyPrice ? Number(rawBuyPrice) : undefined;
           if (!symbol) return;
-          await onAdd(symbol);
+          if (buyPrice !== undefined && (!Number.isFinite(buyPrice) || buyPrice <= 0)) {
+            alert("Giá mua không hợp lệ");
+            return;
+          }
+          await onAdd(symbol, buyPrice);
           form.reset();
         }}
       >
@@ -37,6 +43,15 @@ export function WatchList({
           className="min-w-[200px] flex-1 rounded-lg border border-line bg-surface/80 px-3 py-2 font-mono text-sm uppercase outline-none ring-accent focus:ring-2"
           maxLength={20}
           required
+          autoComplete="off"
+        />
+        <input
+          name="buy_price"
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="Giá đã mua (tuỳ chọn)"
+          className="w-[220px] rounded-lg border border-line bg-surface/80 px-3 py-2 font-mono text-sm outline-none ring-accent focus:ring-2"
           autoComplete="off"
         />
         <button
@@ -56,12 +71,13 @@ export function WatchList({
         </p>
       ) : (
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[520px] text-left text-sm">
+          <table className="w-full min-w-[760px] text-left text-sm">
             <thead>
               <tr className="text-xs uppercase tracking-wide text-muted">
                 <th className="pb-2 min-w-[200px]">Công ty</th>
                 <th className="pb-2">Mã</th>
                 <th className="pb-2">Giá / thay đổi</th>
+                <th className="pb-2">Giá mua / lãi lỗ</th>
                 <th className="pb-2 text-right"> </th>
               </tr>
             </thead>

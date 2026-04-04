@@ -11,10 +11,18 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as { symbol?: string };
+    const body = (await req.json()) as { symbol?: string; buy_price?: number | string };
     const symbol = body.symbol?.trim().toUpperCase() ?? "";
     if (!symbol || symbol.length > 20) {
       return Response.json({ error: "Mã không hợp lệ" }, { status: 400 });
+    }
+    const rawBuyPrice = body.buy_price;
+    const buyPrice =
+      rawBuyPrice === undefined || rawBuyPrice === null || rawBuyPrice === ""
+        ? undefined
+        : Number(rawBuyPrice);
+    if (buyPrice !== undefined && (!Number.isFinite(buyPrice) || buyPrice <= 0)) {
+      return Response.json({ error: "Giá mua không hợp lệ" }, { status: 400 });
     }
     const list = await getWatchlist();
     if (list.some((x) => x.symbol === symbol)) {
@@ -33,6 +41,7 @@ export async function POST(req: Request) {
     const item: WatchItem = {
       id: crypto.randomUUID(),
       symbol,
+      buy_price: buyPrice,
       display_name: info.display_name,
       short_name: info.short_name,
       exchange: info.exchange,
