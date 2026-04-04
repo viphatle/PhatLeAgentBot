@@ -1,4 +1,5 @@
 .env
+SSH_PUBLIC_KEY_FOR_GITHUB.txt
 
 stock-tracker/node_modules/
 stock-tracker/.next/
