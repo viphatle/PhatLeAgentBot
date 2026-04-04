@@ -3,6 +3,7 @@
 import type { WatchItem } from "@/lib/types";
 import { lookupCompanyNameVi } from "@/lib/company-vi";
 import { comparableBuyPrice } from "@/lib/pnl";
+import Link from "next/link";
 
 export type QuoteView = {
   price: number;
@@ -54,7 +55,11 @@ export function StockCard({
           </div>
         ) : null}
       </td>
-      <td className="py-3 pr-2 font-mono font-semibold align-top">{item.symbol}</td>
+      <td className="py-3 pr-2 font-mono font-semibold align-top">
+        <Link href={`/stocks/${encodeURIComponent(item.symbol)}`} className="text-accent hover:underline">
+          {item.symbol}
+        </Link>
+      </td>
       <td className="py-3 pr-2 text-sm align-top">
         {loading && <span className="text-muted">…</span>}
         {!loading && !quote && <span className="text-muted">—</span>}
@@ -139,7 +144,12 @@ export function MobileStockCard({
     <article className="rounded-xl border border-line/70 bg-surface/45 p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="font-mono text-sm font-bold text-slate-100">{item.symbol}</div>
+          <Link
+            href={`/stocks/${encodeURIComponent(item.symbol)}`}
+            className="font-mono text-sm font-bold text-accent hover:underline"
+          >
+            {item.symbol}
+          </Link>
           <div className="mt-1 text-sm font-semibold leading-snug text-slate-100">{item.display_name}</div>
           {viName ? <div className="mt-0.5 text-xs leading-snug text-slate-400">{viName}</div> : null}
           {sub ? <div className="mt-1 text-xs text-muted">{sub}</div> : null}

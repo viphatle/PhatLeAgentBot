@@ -1,6 +1,7 @@
 "use client";
 
 import type { WatchItem } from "@/lib/types";
+import Link from "next/link";
 import { MobileStockCard, StockCard, type QuoteView } from "./StockCard";
 
 function parseBuyPriceInput(value: string): number | undefined {
@@ -32,12 +33,13 @@ export function WatchList({
       {items.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {items.slice(0, 3).map((item) => (
-            <span
+            <Link
               key={`chip-${item.id}`}
+              href={`/stocks/${encodeURIComponent(item.symbol)}`}
               className="inline-flex rounded-full soft-pill px-2.5 py-1 font-mono text-xs text-slate-200"
             >
               {item.symbol}
-            </span>
+            </Link>
           ))}
           {items.length > 3 && (
             <span className="inline-flex rounded-full soft-pill px-2.5 py-1 text-xs text-slate-300">
