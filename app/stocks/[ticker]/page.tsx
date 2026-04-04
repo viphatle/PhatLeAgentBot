@@ -44,6 +44,8 @@ type HistoryResponse = {
   };
 };
 
+type Tone = "good" | "warn" | "neutral";
+
 const PERIODS: Array<{ id: Period; label: string }> = [
   { id: "week", label: "Tuần" },
   { id: "month", label: "Tháng" },
@@ -61,6 +63,12 @@ function axisTicks(min: number, max: number, count: number) {
   if (count < 2) return [min];
   const step = (max - min) / (count - 1 || 1);
   return Array.from({ length: count }, (_, i) => min + step * i);
+}
+
+function toneClass(tone: Tone) {
+  if (tone === "good") return "text-up";
+  if (tone === "warn") return "text-down";
+  return "text-slate-300";
 }
 
 function PriceChart({ points }: { points: HistoryPoint[] }) {
@@ -221,6 +229,108 @@ function indicatorInsights(data: HistoryResponse) {
   return out;
 }
 
+function indicatorRows(data: HistoryResponse): Array<{ key: string; value: string; note: string; tone: Tone }> {
+  const closes = data.points.map((p) => p.close);
+  const price = closes[closes.length - 1];
+  const rows: Array<{ key: string; value: string; note: string; tone: Tone }> = [];
+
+  const sma20 = data.indicators.sma20;
+  if (sma20 !== null) {
+    const above = price >= sma20;
+    rows.push({
+      key: "SMA20",
+      value: formatCompactVn(sma20),
+      note: above ? "Giá đang nằm trên SMA20 (tín hiệu tích cực)." : "Giá dưới SMA20 (cần thận trọng xu hướng).",
+      tone: above ? "good" : "warn",
+    });
+  }
+
+  const ema12 = data.indicators.ema12;
+  const ema26 = data.indicators.ema26;
+  if (ema12 !== null && ema26 !== null) {
+    const up = ema12 >= ema26;
+    rows.push({
+      key: "EMA12/EMA26",
+      value: `${formatCompactVn(ema12)} / ${formatCompactVn(ema26)}`,
+      note: up ? "EMA12 > EMA26: xu hướng ngắn hạn tích cực." : "EMA12 < EMA26: xu hướng ngắn hạn suy yếu.",
+      tone: up ? "good" : "warn",
+    });
+  }
+
+  const rsi = data.indicators.rsi14;
+  if (rsi !== null) {
+    const tone: Tone = rsi >= 70 ? "warn" : rsi <= 30 ? "good" : "neutral";
+    const note =
+      rsi >= 70 ? "RSI14 cao, có rủi ro quá mua." : rsi <= 30 ? "RSI14 thấp, có thể xuất hiện lực hồi." : "RSI14 trung tính.";
+    rows.push({ key: "RSI14", value: formatCompactVn(rsi), note, tone });
+  }
+
+  const macd = data.indicators.macd;
+  const signal = data.indicators.signal9;
+  if (macd !== null && signal !== null) {
+    const up = macd >= signal;
+    rows.push({
+      key: "MACD/Signal",
+      value: `${formatCompactVn(macd)} / ${formatCompactVn(signal)}`,
+      note: up ? "MACD trên Signal: động lượng tăng tốt." : "MACD dưới Signal: động lượng giảm chiếm ưu thế.",
+      tone: up ? "good" : "warn",
+    });
+  }
+  return rows;
+}
+
+function forecastAnalysis(
+  selected: HistoryResponse,
+  all: Partial<Record<Period, HistoryResponse>>,
+): Array<{ text: string; tone: Tone }> {
+  const out: Array<{ text: string; tone: Tone }> = [];
+  const last = selected.points[selected.points.length - 1]?.close ?? 0;
+  const expectedPct = last > 0 ? ((selected.forecast.horizon_end - last) / last) * 100 : 0;
+  out.push({
+    text:
+      expectedPct >= 0
+        ? `Kỳ ${selected.period}: mô hình đang kỳ vọng tăng khoảng ${formatPercent(expectedPct)} đến cuối kỳ.`
+        : `Kỳ ${selected.period}: mô hình đang cảnh báo giảm khoảng ${formatPercent(expectedPct)} đến cuối kỳ.`,
+    tone: expectedPct >= 0 ? "good" : "warn",
+  });
+
+  const slopes = PERIODS.map((p) => all[p.id]?.forecast.slope_per_session).filter(
+    (x): x is number => typeof x === "number" && Number.isFinite(x),
+  );
+  if (slopes.length >= 2) {
+    const positive = slopes.filter((x) => x > 0).length;
+    const negative = slopes.filter((x) => x < 0).length;
+    if (positive === slopes.length) {
+      out.push({ text: "Đa kỳ đều nghiêng tăng (tuần-tháng-quý-năm cùng chiều).", tone: "good" });
+    } else if (negative === slopes.length) {
+      out.push({ text: "Đa kỳ cùng chiều giảm, rủi ro tiếp diễn xu hướng giảm.", tone: "warn" });
+    } else {
+      out.push({ text: "Các kỳ đang trái chiều, xác suất nhiễu cao nên quản trị vị thế chặt.", tone: "neutral" });
+    }
+  }
+
+  if (selected.stats.volatility_pct >= 35) {
+    out.push({ text: "Độ biến động cao (>35% năm hoá), nên ưu tiên kịch bản phòng thủ.", tone: "warn" });
+  } else if (selected.stats.volatility_pct <= 18) {
+    out.push({ text: "Độ biến động thấp, xu hướng có tính ổn định tương đối.", tone: "good" });
+  } else {
+    out.push({ text: "Độ biến động trung bình, cần theo dõi xác nhận thêm theo phiên gần nhất.", tone: "neutral" });
+  }
+
+  const cf = selected.forecast.confidence;
+  out.push({
+    text:
+      cf === "high"
+        ? "Độ tin cậy mô hình đang cao."
+        : cf === "medium"
+          ? "Độ tin cậy mô hình ở mức trung bình."
+          : "Độ tin cậy mô hình thấp, chỉ dùng như kịch bản tham khảo.",
+    tone: cf === "high" ? "good" : cf === "low" ? "warn" : "neutral",
+  });
+
+  return out;
+}
+
 export default function StockDetailPage({ params }: { params: { ticker: string } }) {
   const ticker = params.ticker.toUpperCase();
   const [period, setPeriod] = useState<Period>("month");
@@ -274,6 +384,14 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
   }, [ticker]);
 
   const latest = useMemo(() => data?.points[data.points.length - 1] ?? null, [data]);
+  const periodRange = useMemo(() => {
+    if (!data?.points.length) return "";
+    const first = data.points[0].date;
+    const last = data.points[data.points.length - 1].date;
+    return `${dateShort(first)} - ${dateShort(last)}`;
+  }, [data]);
+  const rows = useMemo(() => (data ? indicatorRows(data) : []), [data]);
+  const analyses = useMemo(() => (data ? forecastAnalysis(data, allPeriods) : []), [data, allPeriods]);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
@@ -313,6 +431,7 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
 
       {data && (
         <div className="grid gap-6">
+          <p className="text-xs text-slate-400">Dữ liệu gần nhất theo bộ lọc: {periodRange}</p>
           <section className="grid gap-3 md:grid-cols-4">
             <div className="rounded-xl border border-line/70 bg-surface/35 p-3">
               <div className="text-xs text-muted">Giá đóng cửa gần nhất</div>
@@ -344,13 +463,16 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
           <section className="grid gap-4 md:grid-cols-2">
             <div className="rounded-xl border border-line/70 bg-surface/35 p-4">
               <h2 className="text-base font-bold text-white">Chỉ báo kỹ thuật</h2>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                <div>SMA20: <span className="font-mono">{formatCompactVn(data.indicators.sma20)}</span></div>
-                <div>EMA12: <span className="font-mono">{formatCompactVn(data.indicators.ema12)}</span></div>
-                <div>EMA26: <span className="font-mono">{formatCompactVn(data.indicators.ema26)}</span></div>
-                <div>RSI14: <span className="font-mono">{formatCompactVn(data.indicators.rsi14)}</span></div>
-                <div>MACD: <span className="font-mono">{formatCompactVn(data.indicators.macd)}</span></div>
-                <div>Signal9: <span className="font-mono">{formatCompactVn(data.indicators.signal9)}</span></div>
+              <div className="mt-3 space-y-2 text-sm">
+                {rows.map((r) => (
+                  <div key={r.key} className="rounded-lg border border-line/60 bg-surface/35 p-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-100">{r.key}</span>
+                      <span className={`font-mono ${toneClass(r.tone)}`}>{r.value}</span>
+                    </div>
+                    <p className={`mt-1 text-xs ${toneClass(r.tone)}`}>{r.note}</p>
+                  </div>
+                ))}
               </div>
               <div className="mt-3 space-y-1 text-xs text-slate-300">
                 {indicatorInsights(data).map((line) => (
@@ -377,11 +499,26 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
                   Độ dốc/phiên: <span className="font-mono">{formatCompactVn(data.forecast.slope_per_session)}</span>
                 </div>
                 <div>
-                  Độ tin cậy: <span className="font-semibold uppercase">{data.forecast.confidence}</span>
+                  Độ tin cậy:{" "}
+                  <span
+                    className={`font-semibold uppercase ${
+                      data.forecast.confidence === "high"
+                        ? "text-up"
+                        : data.forecast.confidence === "low"
+                          ? "text-down"
+                          : "text-slate-300"
+                    }`}
+                  >
+                    {data.forecast.confidence}
+                  </span>
                 </div>
-                <p className="text-xs text-muted">
-                  Dự báo dựa trên xu hướng tuyến tính ngắn hạn, chỉ dùng tham khảo cá nhân.
-                </p>
+                <div className="mt-2 space-y-1">
+                  {analyses.map((a, idx) => (
+                    <p key={`ana-${idx}`} className={`text-xs ${toneClass(a.tone)}`}>
+                      • {a.text}
+                    </p>
+                  ))}
+                </div>
               </div>
             </div>
           </section>
@@ -410,9 +547,25 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
                           {row ? formatPercent(row.stats.period_change_pct) : "—"}
                         </td>
                         <td className="py-2 font-mono">{row ? formatCompactVn(row.forecast.next_session) : "—"}</td>
-                        <td className="py-2 font-mono">{row ? formatCompactVn(row.forecast.horizon_end) : "—"}</td>
-                        <td className="py-2 font-mono">{row ? formatCompactVn(row.forecast.slope_per_session) : "—"}</td>
-                        <td className="py-2 uppercase">{row ? row.forecast.confidence : "—"}</td>
+                        <td className={`py-2 font-mono ${row && row.forecast.horizon_end >= row.points[row.points.length - 1].close ? "text-up" : "text-down"}`}>
+                          {row ? formatCompactVn(row.forecast.horizon_end) : "—"}
+                        </td>
+                        <td className={`py-2 font-mono ${row && row.forecast.slope_per_session >= 0 ? "text-up" : "text-down"}`}>
+                          {row ? formatCompactVn(row.forecast.slope_per_session) : "—"}
+                        </td>
+                        <td
+                          className={`py-2 uppercase ${
+                            row
+                              ? row.forecast.confidence === "high"
+                                ? "text-up"
+                                : row.forecast.confidence === "low"
+                                  ? "text-down"
+                                  : "text-slate-300"
+                              : "text-slate-400"
+                          }`}
+                        >
+                          {row ? row.forecast.confidence : "—"}
+                        </td>
                       </tr>
                     );
                   })}

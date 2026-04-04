@@ -51,26 +51,57 @@ export type HistoryResult = {
 };
 
 function toYmd(tsSeconds: number) {
-  return new Date(tsSeconds * 1000).toISOString().slice(0, 10);
+  const vnTime = new Date(tsSeconds * 1000 + 7 * 60 * 60 * 1000);
+  const y = vnTime.getUTCFullYear();
+  const m = String(vnTime.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(vnTime.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function toPeriodConfig(period: HistoryPeriod): {
   range: string;
   interval: string;
-  keepLatestPoints: number;
   horizonSessions: number;
 } {
   switch (period) {
     case "week":
-      return { range: "1mo", interval: "1d", keepLatestPoints: 7, horizonSessions: 5 };
+      return { range: "1mo", interval: "1d", horizonSessions: 5 };
     case "month":
-      return { range: "3mo", interval: "1d", keepLatestPoints: 31, horizonSessions: 22 };
+      return { range: "3mo", interval: "1d", horizonSessions: 22 };
     case "quarter":
-      return { range: "6mo", interval: "1d", keepLatestPoints: 92, horizonSessions: 66 };
+      return { range: "6mo", interval: "1d", horizonSessions: 66 };
     case "year":
     default:
-      return { range: "1y", interval: "1d", keepLatestPoints: 366, horizonSessions: 252 };
+      return { range: "1y", interval: "1d", horizonSessions: 252 };
   }
+}
+
+function parseYmdUtc(ymd: string) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, (m || 1) - 1, d || 1));
+}
+
+function toYmdUtc(date: Date) {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function trimRecentPeriod(points: HistoryPoint[], period: HistoryPeriod) {
+  if (points.length < 2) return points;
+  const ordered = [...points].sort((a, b) => a.date.localeCompare(b.date));
+  const latestDate = parseYmdUtc(ordered[ordered.length - 1].date);
+  const start = new Date(latestDate);
+  if (period === "week") start.setUTCDate(start.getUTCDate() - 6);
+  if (period === "month") start.setUTCMonth(start.getUTCMonth() - 1);
+  if (period === "quarter") start.setUTCMonth(start.getUTCMonth() - 3);
+  if (period === "year") start.setUTCFullYear(start.getUTCFullYear() - 1);
+  const startYmd = toYmdUtc(start);
+  const latestYmd = ordered[ordered.length - 1].date;
+  const filtered = ordered.filter((p) => p.date >= startYmd && p.date <= latestYmd);
+  if (filtered.length >= 2) return filtered;
+  return ordered.slice(-Math.min(20, ordered.length));
 }
 
 function num(v: unknown): number {
@@ -249,7 +280,7 @@ async function fetchYahooHistory(symbol: string, period: HistoryPeriod): Promise
         });
       }
       if (!points.length) continue;
-      return points.slice(-cfg.keepLatestPoints);
+      return trimRecentPeriod(points, period);
     } catch {
       continue;
     }
@@ -283,7 +314,7 @@ async function fetchVndirectHistory(symbol: string, period: HistoryPeriod): Prom
       })
       .filter((p) => p.date && Number.isFinite(p.close) && p.close > 0);
     if (!points.length) return null;
-    return points.slice(-cfg.keepLatestPoints);
+    return trimRecentPeriod(points, period);
   } catch {
     return null;
   }
