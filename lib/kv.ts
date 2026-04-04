@@ -17,7 +17,12 @@ const defaultSettings = (): AppSettings => ({
 });
 
 function hasKvConfig() {
-  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+  const hasKv = Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+  const hasUpstash = Boolean(
+    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN,
+  );
+  const hasRedis = Boolean(process.env.REDIS_URL && process.env.REDIS_TOKEN);
+  return hasKv || hasUpstash || hasRedis;
 }
 
 function isVercel() {
@@ -31,17 +36,31 @@ export function storageReady() {
 
 export class KvRequiredError extends Error {
   constructor() {
-    super("Cần tạo và liên kết Vercel KV với project (KV_REST_API_URL / KV_REST_API_TOKEN).");
+    super(
+      "Thiếu biến Redis/KV. Cần một trong các cặp: KV_REST_API_URL/KV_REST_API_TOKEN, UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN, hoặc REDIS_URL/REDIS_TOKEN.",
+    );
     this.name = "KvRequiredError";
   }
 }
 
+function normalizeKvEnv() {
+  if (!process.env.KV_REST_API_URL) {
+    process.env.KV_REST_API_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_URL;
+  }
+  if (!process.env.KV_REST_API_TOKEN) {
+    process.env.KV_REST_API_TOKEN =
+      process.env.UPSTASH_REDIS_REST_TOKEN || process.env.REDIS_TOKEN;
+  }
+}
+
 async function kvGet<T>(key: string): Promise<T | null> {
+  normalizeKvEnv();
   const { kv } = await import("@vercel/kv");
   return (await kv.get<T>(key)) ?? null;
 }
 
 async function kvSet(key: string, value: unknown) {
+  normalizeKvEnv();
   const { kv } = await import("@vercel/kv");
   await kv.set(key, value);
 }
