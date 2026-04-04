@@ -1,6 +1,6 @@
 "use client";
 
-import type { ScheduleEvent } from "@/lib/types";
+import type { ScheduleOccurrence } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
 const WEEKDAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
@@ -28,10 +28,13 @@ function monthStartGrid(month: Date) {
 
 export function ScheduleBoard() {
   const [month, setMonth] = useState(() => new Date());
-  const [events, setEvents] = useState<ScheduleEvent[]>([]);
+  const [events, setEvents] = useState<ScheduleOccurrence[]>([]);
   const [selectedDate, setSelectedDate] = useState(() => toDateKey(new Date()));
   const [time, setTime] = useState("09:00");
   const [note, setNote] = useState("");
+  const [repeatMode, setRepeatMode] = useState<"none" | "weekly" | "monthly">("none");
+  const [repeatWeekdays, setRepeatWeekdays] = useState<number[]>([]);
+  const [repeatMonthDay, setRepeatMonthDay] = useState(() => new Date().getDate());
   const [msg, setMsg] = useState<string | null>(null);
 
   const monthKey = toMonthKey(month);
@@ -40,7 +43,7 @@ export function ScheduleBoard() {
     void (async () => {
       const r = await fetch(`/api/schedule?month=${monthKey}`);
       if (!r.ok) return;
-      const j = (await r.json()) as { events?: ScheduleEvent[] };
+      const j = (await r.json()) as { events?: ScheduleOccurrence[] };
       setEvents(j.events ?? []);
     })();
   }, [monthKey]);
@@ -76,7 +79,7 @@ export function ScheduleBoard() {
           href="/"
           className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100"
         >
-          Về danh sách chứng khoán
+          Quay trở lại trang chủ
         </a>
       </header>
 
@@ -159,22 +162,104 @@ export function ScheduleBoard() {
                 const r = await fetch("/api/schedule", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ date: selectedDate, time, note }),
+                  body: JSON.stringify({
+                    date: selectedDate,
+                    time,
+                    note,
+                    recurrence: {
+                      mode: repeatMode,
+                      weekdays: repeatWeekdays,
+                      month_day: repeatMonthDay,
+                    },
+                  }),
                 });
                 const j = await r.json().catch(() => ({}));
                 if (!r.ok) {
                   setMsg(j?.error ?? "Không lưu được ghi chú");
                   return;
                 }
-                const next = (j?.events ?? []) as ScheduleEvent[];
-                const filtered = next.filter((e) => e.date.startsWith(`${monthKey}-`));
-                setEvents(filtered);
+                const rr = await fetch(`/api/schedule?month=${monthKey}`);
+                const jj = (await rr.json().catch(() => ({}))) as { events?: ScheduleOccurrence[] };
+                setEvents(jj.events ?? []);
                 setNote("");
                 setMsg("Đã lưu ghi chú và gửi thông báo Telegram.");
               }}
             >
               Tạo ghi chú
             </button>
+          </div>
+          <div className="mt-3 space-y-2 rounded-lg border border-line/70 bg-surface/30 p-3 text-sm">
+            <div className="text-xs uppercase tracking-wide text-muted">Lặp lại</div>
+            <div className="flex flex-wrap gap-3 text-sm">
+              <label className="flex items-center gap-1">
+                <input
+                  type="radio"
+                  checked={repeatMode === "none"}
+                  onChange={() => setRepeatMode("none")}
+                />
+                Không lặp
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="radio"
+                  checked={repeatMode === "weekly"}
+                  onChange={() => setRepeatMode("weekly")}
+                />
+                Theo thứ hàng tuần
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="radio"
+                  checked={repeatMode === "monthly"}
+                  onChange={() => setRepeatMode("monthly")}
+                />
+                Theo ngày hàng tháng
+              </label>
+            </div>
+            {repeatMode === "weekly" && (
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { d: 1, t: "T2" },
+                  { d: 2, t: "T3" },
+                  { d: 3, t: "T4" },
+                  { d: 4, t: "T5" },
+                  { d: 5, t: "T6" },
+                  { d: 6, t: "T7" },
+                  { d: 0, t: "CN" },
+                ].map((x) => {
+                  const active = repeatWeekdays.includes(x.d);
+                  return (
+                    <button
+                      key={x.d}
+                      type="button"
+                      onClick={() =>
+                        setRepeatWeekdays((prev) =>
+                          prev.includes(x.d) ? prev.filter((v) => v !== x.d) : [...prev, x.d],
+                        )
+                      }
+                      className={`rounded-md px-2 py-1 text-xs ${
+                        active ? "brand-btn text-white" : "subtle-btn text-slate-200"
+                      }`}
+                    >
+                      {x.t}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {repeatMode === "monthly" && (
+              <label className="flex items-center gap-2">
+                <span className="text-xs text-muted">Ngày trong tháng</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={repeatMonthDay}
+                  onChange={(e) => setRepeatMonthDay(Number(e.target.value))}
+                  className="neo-input w-20 rounded px-2 py-1 text-sm"
+                />
+              </label>
+            )}
           </div>
           {msg && <p className="mt-2 text-sm text-muted">{msg}</p>}
 
@@ -186,6 +271,7 @@ export function ScheduleBoard() {
                 <div key={e.id} className="rounded-lg border border-line/70 bg-surface/50 p-2.5">
                   <div className="text-sm font-medium text-slate-100">{e.time}</div>
                   <div className="mt-1 text-xs text-slate-300">GHI CHÚ: {e.note}</div>
+                  <div className="mt-1 text-[11px] text-muted">Lặp: {e.recurrence_text}</div>
                   <button
                     type="button"
                     className="mt-2 rounded subtle-btn px-2 py-1 text-xs text-slate-300 hover:text-down"

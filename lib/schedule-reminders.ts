@@ -1,4 +1,5 @@
 import { getScheduleEvents, getSettings, setScheduleEvents } from "./kv";
+import { upcomingOccurrencesInWindow } from "./schedule-utils";
 import type { ScheduleEvent } from "./types";
 import { sendTelegramMessage } from "./telegram";
 
@@ -36,11 +37,19 @@ async function telegramAuth() {
 export async function sendScheduleCreatedNotice(e: ScheduleEvent) {
   const auth = await telegramAuth();
   if (!auth) return;
+  const recurrence = e.recurrence?.mode ?? "none";
+  const recurrenceText =
+    recurrence === "weekly"
+      ? `Lặp hàng tuần (${(e.recurrence?.weekdays ?? []).join(", ")})`
+      : recurrence === "monthly"
+      ? `Lặp hàng tháng (ngày ${e.recurrence?.month_day ?? "-"})`
+      : "Không lặp";
   const text = [
     "🗓️ <b>Đã tạo ghi chú lịch mới</b>",
     "",
     `⏰ <b>${escapeHtml(eventLine(e))}</b>`,
     `📝 GHI CHÚ: ${escapeHtml(e.note)}`,
+    `🔁 ${escapeHtml(recurrenceText)}`,
   ].join("\n");
   await sendTelegramMessage(auth.token, auth.chatId, text);
 }
@@ -57,34 +66,45 @@ export async function processScheduleReminders(now = new Date()) {
   let changed = false;
 
   for (const e of events) {
-    const startMs = eventEpochMs(e.date, e.time);
-    const msToStart = startMs - nowMs;
-    if (msToStart <= 0) continue;
+    const occs = upcomingOccurrencesInWindow(e, now, 40);
+    const sent1d = new Set(e.remind_1d_keys ?? []);
+    const sent1h = new Set(e.remind_1h_keys ?? []);
 
-    if (!e.remind_1d_sent_at && msToStart <= 24 * 60 * 60 * 1000) {
-      const text = [
-        "⏳ <b>Nhắc lịch: còn khoảng 1 ngày</b>",
-        "",
-        `⏰ <b>${escapeHtml(eventLine(e))}</b>`,
-        `📝 GHI CHÚ: ${escapeHtml(e.note)}`,
-      ].join("\n");
-      await sendTelegramMessage(auth.token, auth.chatId, text);
-      e.remind_1d_sent_at = new Date().toISOString();
-      sent += 1;
-      changed = true;
+    for (const occ of occs) {
+      const startMs = eventEpochMs(occ.date, occ.time);
+      const msToStart = startMs - nowMs;
+      if (msToStart <= 0) continue;
+
+      if (!sent1d.has(occ.date) && msToStart <= 24 * 60 * 60 * 1000) {
+        const text = [
+          "⏳ <b>Nhắc lịch: còn khoảng 1 ngày</b>",
+          "",
+          `⏰ <b>${escapeHtml(`${vnDateDisplay(occ.date)} ${occ.time}`)}</b>`,
+          `📝 GHI CHÚ: ${escapeHtml(e.note)}`,
+        ].join("\n");
+        await sendTelegramMessage(auth.token, auth.chatId, text);
+        sent1d.add(occ.date);
+        sent += 1;
+        changed = true;
+      }
+
+      if (!sent1h.has(occ.date) && msToStart <= 60 * 60 * 1000) {
+        const text = [
+          "🔔 <b>Nhắc lịch: còn khoảng 1 giờ</b>",
+          "",
+          `⏰ <b>${escapeHtml(`${vnDateDisplay(occ.date)} ${occ.time}`)}</b>`,
+          `📝 GHI CHÚ: ${escapeHtml(e.note)}`,
+        ].join("\n");
+        await sendTelegramMessage(auth.token, auth.chatId, text);
+        sent1h.add(occ.date);
+        sent += 1;
+        changed = true;
+      }
     }
 
-    if (!e.remind_1h_sent_at && msToStart <= 60 * 60 * 1000) {
-      const text = [
-        "🔔 <b>Nhắc lịch: còn khoảng 1 giờ</b>",
-        "",
-        `⏰ <b>${escapeHtml(eventLine(e))}</b>`,
-        `📝 GHI CHÚ: ${escapeHtml(e.note)}`,
-      ].join("\n");
-      await sendTelegramMessage(auth.token, auth.chatId, text);
-      e.remind_1h_sent_at = new Date().toISOString();
-      sent += 1;
-      changed = true;
+    if (changed) {
+      e.remind_1d_keys = Array.from(sent1d).sort().slice(-120);
+      e.remind_1h_keys = Array.from(sent1h).sort().slice(-120);
     }
   }
 

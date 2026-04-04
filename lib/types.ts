@@ -40,7 +40,22 @@ export type ScheduleEvent = {
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   note: string;
+  recurrence?: {
+    mode: "none" | "weekly" | "monthly";
+    weekdays?: number[]; // JS weekday: 0=CN ... 6=T7
+    month_day?: number; // 1..31
+  };
   created_at: string;
-  remind_1d_sent_at?: string;
-  remind_1h_sent_at?: string;
+  remind_1d_keys?: string[]; // keys dạng YYYY-MM-DD
+  remind_1h_keys?: string[]; // keys dạng YYYY-MM-DD
+};
+
+export type ScheduleOccurrence = {
+  id: string; // eventId hoặc eventId@YYYY-MM-DD
+  series_id: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+  note: string;
+  recurrence_mode: "none" | "weekly" | "monthly";
+  recurrence_text: string;
 };
