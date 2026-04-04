@@ -94,12 +94,6 @@ export function Dashboard() {
           </h1>
           <div className="flex items-center gap-2">
             <a
-              href="/schedule"
-              className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100"
-            >
-              Mở lịch biểu
-            </a>
-            <a
               href="/settings"
               className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100"
             >
