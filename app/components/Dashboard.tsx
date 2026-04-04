@@ -2,6 +2,7 @@
 
 import type { WatchItem } from "@/lib/types";
 import { useCallback, useEffect, useState } from "react";
+import { LogoutButton } from "./LogoutButton";
 import { TelegramSetup } from "./TelegramSetup";
 import type { QuoteView } from "./StockCard";
 import { WatchList } from "./WatchList";
@@ -91,12 +92,15 @@ export function Dashboard() {
           <h1 className="text-2xl font-black tracking-tight text-white md:text-4xl">
             LỊCH BIỂU THEO DÕI:
           </h1>
-          <a
-            href="/schedule"
-            className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100"
-          >
-            Mở lịch biểu
-          </a>
+          <div className="flex items-center gap-2">
+            <a
+              href="/schedule"
+              className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100"
+            >
+              Mở lịch biểu
+            </a>
+            <LogoutButton />
+          </div>
         </div>
         <p className="mt-3 max-w-2xl text-sm text-slate-300">
           Lịch nhắc hẹn, ghi chú các sự kiện đang diễn ra

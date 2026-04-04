@@ -2,6 +2,7 @@
 
 import type { ScheduleOccurrence } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
+import { LogoutButton } from "./LogoutButton";
 
 const WEEKDAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
@@ -75,12 +76,15 @@ export function ScheduleBoard() {
     <main className="mx-auto max-w-6xl px-4 py-10 md:px-6">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-black tracking-tight text-white md:text-4xl">Lịch Biểu Nhắc Việc</h1>
-        <a
-          href="/"
-          className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100"
-        >
-          Quay trở lại trang chủ
-        </a>
+        <div className="flex items-center gap-2">
+          <a
+            href="/"
+            className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100"
+          >
+            Quay trở lại trang chủ
+          </a>
+          <LogoutButton />
+        </div>
       </header>
 
       <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
