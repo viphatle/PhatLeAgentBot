@@ -24,6 +24,8 @@ Stock Tracker — triển khai serverless trên Vercel
      • 30 7 * * 1-5 → ~14:30 GMT+7
    - Nếu tài khoản chỉ cho 1 cron: xóa một mục trong vercel.json.
    - Cron chỉ GỬI khi đang trong phiên VN; ngoài phiên trả skipped (HTTP 200).
+   - Gói Hobby giới hạn cron chạy 1 lần/ngày. Endpoint nhắc lịch
+     /api/cron/schedule-reminders đang để 1 lần/ngày để không lỗi deploy.
 
 5) Gửi báo cáo từ web (POST /api/report)
    - Local / không đặt ADMIN_SECRET: không cần header.
@@ -44,3 +46,6 @@ Stock Tracker — triển khai serverless trên Vercel
      https://<domain>/api/cron/report
      với header Authorization: Bearer <CRON_SECRET>
    - Hoặc nâng cấp plan Vercel để cron tần suất cao hơn.
+   - Với nhắc lịch theo giờ/ngày trên gói Hobby: dùng cron ngoài gọi
+     https://<domain>/api/cron/schedule-reminders
+     kèm header Authorization: Bearer <CRON_SECRET>.
