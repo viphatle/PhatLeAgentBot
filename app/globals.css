@@ -4,48 +4,59 @@
 
 :root {
   color-scheme: dark;
-  --bg0: #07101a;
-  --bg1: #0b1825;
-  --bg2: #102234;
-  --ink: #e8eef6;
-  --muted: #95a7bd;
-  --line: #27374a;
-  --card: #0f1a27cc;
-  --accent: #2ea4ff;
-  --up: #2fd28b;
-  --down: #ff6b6b;
+  --bg0: #060f1d;
+  --bg1: #0a1628;
+  --bg2: #10243a;
+  --ink: #ecf3fb;
+  --muted: #9fb2c8;
+  --line: #2b4057;
+  --card: #0f1c2ccc;
+  --accent: #38a8ff;
+  --up: #34d399;
+  --down: #fb7185;
 }
 
 body {
   @apply antialiased min-h-screen;
+  font-family: "Avenir Next", "Nunito Sans", "IBM Plex Sans", "Segoe UI", sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(900px 540px at 10% -5%, rgba(35, 124, 217, 0.22) 0%, transparent 56%),
-    radial-gradient(760px 480px at 95% 0%, rgba(8, 168, 130, 0.2) 0%, transparent 52%),
-    linear-gradient(160deg, var(--bg0), var(--bg1) 45%, var(--bg2));
+    radial-gradient(840px 520px at 10% -8%, rgba(44, 143, 236, 0.24) 0%, transparent 56%),
+    radial-gradient(820px 500px at 100% -12%, rgba(17, 160, 126, 0.2) 0%, transparent 55%),
+    linear-gradient(158deg, var(--bg0), var(--bg1) 48%, var(--bg2));
+  letter-spacing: 0.01em;
 }
 
 ::selection {
   background: rgba(46, 164, 255, 0.3);
 }
 
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Avenir Next Condensed", "Avenir Next", "IBM Plex Sans", sans-serif;
+  letter-spacing: 0.01em;
+}
+
 .glass-card {
-  border: 1px solid rgba(148, 167, 196, 0.24);
-  background: linear-gradient(180deg, rgba(20, 33, 49, 0.78), rgba(12, 24, 38, 0.88));
+  border: 1px solid rgba(148, 177, 204, 0.26);
+  background: linear-gradient(180deg, rgba(18, 32, 49, 0.82), rgba(11, 22, 36, 0.9));
   box-shadow:
-    0 10px 30px rgba(3, 8, 15, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 14px 36px rgba(3, 10, 20, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(10px);
+  border-radius: 1rem;
 }
 
 .soft-pill {
   border: 1px solid rgba(148, 167, 196, 0.22);
-  background: rgba(17, 28, 42, 0.65);
+  background: rgba(16, 29, 45, 0.72);
 }
 
 .neo-input {
-  border: 1px solid rgba(137, 160, 190, 0.3);
-  background: rgba(11, 22, 35, 0.82);
+  border: 1px solid rgba(138, 170, 202, 0.35);
+  background: rgba(10, 21, 34, 0.84);
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
@@ -55,8 +66,9 @@ body {
 }
 
 .brand-btn {
-  background: linear-gradient(135deg, #1989e8, #2ea4ff);
-  box-shadow: 0 8px 18px rgba(19, 120, 208, 0.34);
+  background: linear-gradient(135deg, #1b88e5, #3eb2ff);
+  box-shadow: 0 8px 20px rgba(18, 119, 206, 0.35);
+  font-family: "Avenir Next Condensed", "Avenir Next", "IBM Plex Sans", sans-serif;
 }
 
 .brand-btn:hover {
@@ -64,10 +76,12 @@ body {
 }
 
 .subtle-btn {
-  border: 1px solid rgba(148, 167, 196, 0.26);
-  background: rgba(15, 28, 43, 0.58);
+  border: 1px solid rgba(148, 167, 196, 0.3);
+  background: rgba(14, 27, 42, 0.62);
+  transition: border-color 0.18s ease, background-color 0.18s ease;
 }
 
 .subtle-btn:hover {
-  border-color: rgba(46, 164, 255, 0.66);
+  border-color: rgba(56, 168, 255, 0.72);
+  background: rgba(18, 33, 50, 0.75);
 }

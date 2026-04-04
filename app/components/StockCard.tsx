@@ -2,6 +2,7 @@
 
 import type { WatchItem } from "@/lib/types";
 import { lookupCompanyNameVi } from "@/lib/company-vi";
+import { formatCompactVn, formatNumberVn, formatPercent } from "@/lib/format";
 import { comparableBuyPrice } from "@/lib/pnl";
 import Link from "next/link";
 
@@ -64,13 +65,15 @@ export function StockCard({
         {loading && <span className="text-muted">…</span>}
         {!loading && !quote && <span className="text-muted">—</span>}
         {!loading && quote && (
-          <span>
-            <span className="font-mono">{quote.price.toLocaleString("vi-VN")}</span>{" "}
-            <span className={color}>
-              ({up ? "+" : ""}
-              {quote.change.toLocaleString("vi-VN")}, {up ? "+" : ""}
-              {quote.change_pct.toFixed(2)}%)
-            </span>
+            <span>
+              <span className="font-mono" title={formatNumberVn(quote.price)}>{formatCompactVn(quote.price)}</span>{" "}
+              <span className={color}>
+                ({up ? "+" : ""}
+              {formatCompactVn(quote.change)}, {formatPercent(quote.change_pct)})
+              </span>
+              <span className="ml-2 text-xs text-slate-400" title={formatNumberVn(quote.volume)}>
+                KLGD: {formatCompactVn(quote.volume)}
+              </span>
             {quote.source === "mock_demo" && (
               <span className="ml-1 text-xs text-amber-200/90" title="Không phải giá sàn thật">
                 giả lập (cài đặt)
@@ -83,14 +86,15 @@ export function StockCard({
         {!buyPrice && <span className="text-muted">—</span>}
         {buyPrice && (
           <div>
-            <div className="font-mono">{buyPrice.toLocaleString("vi-VN")}</div>
+            <div className="font-mono" title={formatNumberVn(buyPrice)}>
+              {formatCompactVn(buyPrice)}
+            </div>
             {pnlValue === null || pnlPct === null ? (
               <div className="text-xs text-muted">Chưa có giá thị trường</div>
             ) : (
               <div className={`text-xs ${pnlColor}`}>
                 {pnlLabel}: {pnlUp ? "+" : ""}
-                {pnlValue.toLocaleString("vi-VN")} ({pnlUp ? "+" : ""}
-                {pnlPct.toFixed(2)}%)
+                {formatCompactVn(pnlValue)} ({formatPercent(pnlPct)})
               </div>
             )}
           </div>
@@ -170,11 +174,12 @@ export function MobileStockCard({
           {!loading && !quote && <span className="text-muted">Không có dữ liệu</span>}
           {!loading && quote && (
             <span className="text-right">
-              <span className="font-mono text-slate-100">{quote.price.toLocaleString("vi-VN")}</span>{" "}
+              <span className="font-mono text-slate-100" title={formatNumberVn(quote.price)}>
+                {formatCompactVn(quote.price)}
+              </span>{" "}
               <span className={color}>
                 ({up ? "+" : ""}
-                {quote.change.toLocaleString("vi-VN")}, {up ? "+" : ""}
-                {quote.change_pct.toFixed(2)}%)
+                {formatCompactVn(quote.change)}, {formatPercent(quote.change_pct)})
               </span>
             </span>
           )}
@@ -185,14 +190,15 @@ export function MobileStockCard({
           {!buyPrice && <span className="text-muted">—</span>}
           {buyPrice && (
             <div className="text-right">
-              <div className="font-mono text-slate-100">{buyPrice.toLocaleString("vi-VN")}</div>
+              <div className="font-mono text-slate-100" title={formatNumberVn(buyPrice)}>
+                {formatCompactVn(buyPrice)}
+              </div>
               {pnlValue === null || pnlPct === null ? (
                 <div className="text-xs text-muted">Chưa có giá thị trường</div>
               ) : (
                 <div className={`text-xs ${pnlColor}`}>
                   {pnlLabel}: {pnlUp ? "+" : ""}
-                  {pnlValue.toLocaleString("vi-VN")} ({pnlUp ? "+" : ""}
-                  {pnlPct.toFixed(2)}%)
+                  {formatCompactVn(pnlValue)} ({formatPercent(pnlPct)})
                 </div>
               )}
             </div>

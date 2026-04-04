@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { formatCompactVn, formatNumberVn, formatPercent } from "@/lib/format";
 
 type Period = "week" | "month" | "quarter" | "year";
 
@@ -50,17 +51,6 @@ const PERIODS: Array<{ id: Period; label: string }> = [
   { id: "year", label: "Năm" },
 ];
 
-function fmtVnd(v: number | null | undefined) {
-  if (v === null || v === undefined || !Number.isFinite(v)) return "—";
-  return v.toLocaleString("vi-VN");
-}
-
-function fmtPct(v: number | null | undefined) {
-  if (v === null || v === undefined || !Number.isFinite(v)) return "—";
-  const sign = v > 0 ? "+" : "";
-  return `${sign}${v.toFixed(2)}%`;
-}
-
 function PriceChart({ points }: { points: HistoryPoint[] }) {
   const width = 880;
   const height = 280;
@@ -88,7 +78,7 @@ function PriceChart({ points }: { points: HistoryPoint[] }) {
       <div className="mb-2 flex items-center justify-between text-xs text-slate-300">
         <span>Đồ thị giá đóng cửa</span>
         <span className={up ? "text-up" : "text-down"}>
-          {fmtVnd(last)} ({fmtPct(first > 0 ? ((last - first) / first) * 100 : 0)})
+          {formatCompactVn(last)} ({formatPercent(first > 0 ? ((last - first) / first) * 100 : 0)})
         </span>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} className="h-64 w-full">
@@ -194,21 +184,25 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
           <section className="grid gap-3 md:grid-cols-4">
             <div className="rounded-xl border border-line/70 bg-surface/35 p-3">
               <div className="text-xs text-muted">Giá đóng cửa gần nhất</div>
-              <div className="mt-1 font-mono text-lg text-white">{fmtVnd(latest?.close)}</div>
+              <div className="mt-1 font-mono text-lg text-white" title={formatNumberVn(latest?.close)}>
+                {formatCompactVn(latest?.close)}
+              </div>
             </div>
             <div className="rounded-xl border border-line/70 bg-surface/35 p-3">
               <div className="text-xs text-muted">Biến động kỳ</div>
               <div className={`mt-1 font-mono text-lg ${data.stats.period_change_pct >= 0 ? "text-up" : "text-down"}`}>
-                {fmtPct(data.stats.period_change_pct)}
+                {formatPercent(data.stats.period_change_pct)}
               </div>
             </div>
             <div className="rounded-xl border border-line/70 bg-surface/35 p-3">
               <div className="text-xs text-muted">Khối lượng trung bình</div>
-              <div className="mt-1 font-mono text-lg text-white">{fmtVnd(data.stats.avg_volume)}</div>
+              <div className="mt-1 font-mono text-lg text-white" title={formatNumberVn(data.stats.avg_volume)}>
+                {formatCompactVn(data.stats.avg_volume)}
+              </div>
             </div>
             <div className="rounded-xl border border-line/70 bg-surface/35 p-3">
               <div className="text-xs text-muted">Độ biến động năm hoá</div>
-              <div className="mt-1 font-mono text-lg text-white">{fmtPct(data.stats.volatility_pct)}</div>
+              <div className="mt-1 font-mono text-lg text-white">{formatPercent(data.stats.volatility_pct)}</div>
             </div>
           </section>
 
@@ -219,26 +213,31 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
             <div className="rounded-xl border border-line/70 bg-surface/35 p-4">
               <h2 className="text-base font-bold text-white">Chỉ báo kỹ thuật</h2>
               <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                <div>SMA20: <span className="font-mono">{fmtVnd(data.indicators.sma20)}</span></div>
-                <div>EMA12: <span className="font-mono">{fmtVnd(data.indicators.ema12)}</span></div>
-                <div>EMA26: <span className="font-mono">{fmtVnd(data.indicators.ema26)}</span></div>
-                <div>RSI14: <span className="font-mono">{fmtVnd(data.indicators.rsi14)}</span></div>
-                <div>MACD: <span className="font-mono">{fmtVnd(data.indicators.macd)}</span></div>
-                <div>Signal9: <span className="font-mono">{fmtVnd(data.indicators.signal9)}</span></div>
+                <div>SMA20: <span className="font-mono">{formatCompactVn(data.indicators.sma20)}</span></div>
+                <div>EMA12: <span className="font-mono">{formatCompactVn(data.indicators.ema12)}</span></div>
+                <div>EMA26: <span className="font-mono">{formatCompactVn(data.indicators.ema26)}</span></div>
+                <div>RSI14: <span className="font-mono">{formatCompactVn(data.indicators.rsi14)}</span></div>
+                <div>MACD: <span className="font-mono">{formatCompactVn(data.indicators.macd)}</span></div>
+                <div>Signal9: <span className="font-mono">{formatCompactVn(data.indicators.signal9)}</span></div>
               </div>
             </div>
             <div className="rounded-xl border border-line/70 bg-surface/35 p-4">
               <h2 className="text-base font-bold text-white">Dự báo xu hướng</h2>
               <div className="mt-3 grid gap-2 text-sm">
                 <div>
-                  Phiên kế tiếp: <span className="font-mono text-white">{fmtVnd(data.forecast.next_session)}</span>
+                  Phiên kế tiếp:{" "}
+                  <span className="font-mono text-white" title={formatNumberVn(data.forecast.next_session)}>
+                    {formatCompactVn(data.forecast.next_session)}
+                  </span>
                 </div>
                 <div>
                   Cuối kỳ ({data.forecast.horizon_sessions} phiên):{" "}
-                  <span className="font-mono text-white">{fmtVnd(data.forecast.horizon_end)}</span>
+                  <span className="font-mono text-white" title={formatNumberVn(data.forecast.horizon_end)}>
+                    {formatCompactVn(data.forecast.horizon_end)}
+                  </span>
                 </div>
                 <div>
-                  Độ dốc/phiên: <span className="font-mono">{fmtVnd(data.forecast.slope_per_session)}</span>
+                  Độ dốc/phiên: <span className="font-mono">{formatCompactVn(data.forecast.slope_per_session)}</span>
                 </div>
                 <div>
                   Độ tin cậy: <span className="font-semibold uppercase">{data.forecast.confidence}</span>

@@ -103,7 +103,7 @@ export function Dashboard() {
           </div>
         </div>
         <p className="mt-3 max-w-2xl text-sm text-slate-300">
-          Nhắc lịch, theo dõi các sự kiện và hoạt động cá nhân.!
+          Nhắc lịch, theo dõi các sự kiện và hoạt động cá nhân.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {sessionLabel ? (
