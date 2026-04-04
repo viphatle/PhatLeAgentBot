@@ -27,6 +27,23 @@ export function WatchList({
   return (
     <section className="rounded-xl border border-line bg-card/90 p-5 shadow-lg backdrop-blur">
       <h2 className="text-lg font-semibold text-white">MÃ CK:</h2>
+      {items.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {items.slice(0, 3).map((item) => (
+            <span
+              key={`chip-${item.id}`}
+              className="inline-flex rounded-full border border-line bg-surface/80 px-2.5 py-1 font-mono text-xs text-slate-200"
+            >
+              {item.symbol}
+            </span>
+          ))}
+          {items.length > 3 && (
+            <span className="inline-flex rounded-full border border-line bg-surface/50 px-2.5 py-1 text-xs text-muted">
+              +{items.length - 3} mã
+            </span>
+          )}
+        </div>
+      )}
       <form
         className="mt-4 flex flex-wrap gap-2"
         onSubmit={async (e) => {
@@ -70,7 +87,7 @@ export function WatchList({
         </button>
       </form>
       <p className="mt-2 text-xs text-muted">
-        Chỉ cần mã — tên công ty và sàn lấy tự động từ Yahoo. Trùng mã sẽ báo lỗi.
+        Chỉ cần mã — hỗ trợ HOSE/HNX/UPCOM. Nếu Yahoo không có metadata thì vẫn thêm được bằng thông tin mặc định.
       </p>
 
       {items.length === 0 ? (

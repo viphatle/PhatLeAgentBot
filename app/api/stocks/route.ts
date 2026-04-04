@@ -33,25 +33,17 @@ export async function POST(req: Request) {
       return Response.json({ error: "Mã đã có trong danh sách" }, { status: 400 });
     }
     const info = await resolveYahooInstrument(symbol);
-    if (!info) {
-      return Response.json(
-        {
-          error:
-            "Không tìm thấy mã trên Yahoo (.VN / .HNO). Kiểm tra mã HOSE/HNX (ví dụ VCB, FPT, VHM).",
-        },
-        { status: 404 }
-      );
-    }
+    const viName = lookupCompanyNameVi(symbol);
     const item: WatchItem = {
       id: crypto.randomUUID(),
       symbol,
       buy_price: buyPrice,
-      display_name: info.display_name,
-      display_name_vi: lookupCompanyNameVi(symbol),
-      short_name: info.short_name,
-      exchange: info.exchange,
-      full_exchange: info.full_exchange,
-      yahoo_symbol: info.yahoo_symbol,
+      display_name: info?.display_name || viName || symbol,
+      display_name_vi: viName,
+      short_name: info?.short_name,
+      exchange: info?.exchange || "UPCOM",
+      full_exchange: info?.full_exchange,
+      yahoo_symbol: info?.yahoo_symbol,
       created_at: new Date().toISOString(),
     };
     await setWatchlist([...list, item]);
