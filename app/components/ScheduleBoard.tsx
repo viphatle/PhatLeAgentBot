@@ -1,8 +1,7 @@
 "use client";
 
+import type { ScheduleEvent } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
-
-type NoteMap = Record<string, string>;
 
 const WEEKDAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
@@ -12,6 +11,11 @@ function toMonthKey(d: Date) {
 
 function toDateKey(d: Date) {
   return `${toMonthKey(d)}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function toViDate(iso: string) {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
 }
 
 function monthStartGrid(month: Date) {
@@ -24,8 +28,9 @@ function monthStartGrid(month: Date) {
 
 export function ScheduleBoard() {
   const [month, setMonth] = useState(() => new Date());
-  const [notes, setNotes] = useState<NoteMap>({});
+  const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState(() => toDateKey(new Date()));
+  const [time, setTime] = useState("09:00");
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -35,14 +40,10 @@ export function ScheduleBoard() {
     void (async () => {
       const r = await fetch(`/api/schedule?month=${monthKey}`);
       if (!r.ok) return;
-      const j = (await r.json()) as { notes?: NoteMap };
-      setNotes(j.notes ?? {});
+      const j = (await r.json()) as { events?: ScheduleEvent[] };
+      setEvents(j.events ?? []);
     })();
   }, [monthKey]);
-
-  useEffect(() => {
-    setNote(notes[selectedDate] ?? "");
-  }, [selectedDate, notes]);
 
   const days = useMemo(() => {
     const start = monthStartGrid(month);
@@ -52,6 +53,20 @@ export function ScheduleBoard() {
       return d;
     });
   }, [month]);
+
+  const selectedEvents = useMemo(
+    () =>
+      events
+        .filter((e) => e.date === selectedDate)
+        .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)),
+    [events, selectedDate],
+  );
+
+  const noteCountByDate = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const e of events) m[e.date] = (m[e.date] ?? 0) + 1;
+    return m;
+  }, [events]);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
@@ -98,7 +113,7 @@ export function ScheduleBoard() {
               const key = toDateKey(d);
               const inMonth = d.getMonth() === month.getMonth();
               const active = key === selectedDate;
-              const hasNote = Boolean(notes[key]);
+              const count = noteCountByDate[key] ?? 0;
               return (
                 <button
                   key={key}
@@ -111,7 +126,7 @@ export function ScheduleBoard() {
                   } ${inMonth ? "" : "opacity-45"}`}
                 >
                   <div>{d.getDate()}</div>
-                  <div className="mt-1 text-[10px]">{hasNote ? "●" : ""}</div>
+                  <div className="mt-1 text-[10px]">{count > 0 ? `${count} ghi chú` : ""}</div>
                 </button>
               );
             })}
@@ -119,12 +134,21 @@ export function ScheduleBoard() {
         </section>
 
         <section className="rounded-xl border border-line bg-card/90 p-4">
-          <h2 className="text-lg font-semibold text-white">Ghi chú ngày {selectedDate}</h2>
+          <h2 className="text-lg font-semibold text-white">Ghi chú ngày {toViDate(selectedDate)}</h2>
+          <div className="mt-3 grid gap-2">
+            <label className="text-xs text-muted">Giờ</label>
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className="rounded-lg border border-line bg-surface/80 px-3 py-2 text-sm text-slate-100 outline-none ring-accent focus:ring-2"
+            />
+          </div>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Nhập nội dung cần nhắc..."
-            className="mt-3 h-48 w-full rounded-lg border border-line bg-surface/80 p-3 text-sm text-slate-100 outline-none ring-accent focus:ring-2"
+            placeholder="GHI CHÚ: nội dung cần nhắc..."
+            className="mt-3 h-32 w-full rounded-lg border border-line bg-surface/80 p-3 text-sm text-slate-100 outline-none ring-accent focus:ring-2"
           />
           <div className="mt-3 flex gap-2">
             <button
@@ -135,46 +159,52 @@ export function ScheduleBoard() {
                 const r = await fetch("/api/schedule", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ date: selectedDate, note }),
+                  body: JSON.stringify({ date: selectedDate, time, note }),
                 });
                 const j = await r.json().catch(() => ({}));
                 if (!r.ok) {
                   setMsg(j?.error ?? "Không lưu được ghi chú");
                   return;
                 }
-                const next = (j?.notes ?? {}) as NoteMap;
-                const filtered = Object.fromEntries(
-                  Object.entries(next).filter(([k]) => k.startsWith(`${monthKey}-`)),
-                );
-                setNotes(filtered);
-                setMsg("Đã lưu ghi chú");
-              }}
-            >
-              Lưu ghi chú
-            </button>
-            <button
-              type="button"
-              className="rounded-lg border border-line px-4 py-2 text-sm"
-              onClick={async () => {
+                const next = (j?.events ?? []) as ScheduleEvent[];
+                const filtered = next.filter((e) => e.date.startsWith(`${monthKey}-`));
+                setEvents(filtered);
                 setNote("");
-                const r = await fetch("/api/schedule", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ date: selectedDate, note: "" }),
-                });
-                if (!r.ok) return;
-                setNotes((prev) => {
-                  const copy = { ...prev };
-                  delete copy[selectedDate];
-                  return copy;
-                });
-                setMsg("Đã xoá ghi chú");
+                setMsg("Đã lưu ghi chú và gửi thông báo Telegram.");
               }}
             >
-              Xoá
+              Tạo ghi chú
             </button>
           </div>
           {msg && <p className="mt-2 text-sm text-muted">{msg}</p>}
+
+          <div className="mt-4 space-y-2">
+            {selectedEvents.length === 0 ? (
+              <p className="text-sm text-muted">Chưa có ghi chú cho ngày này.</p>
+            ) : (
+              selectedEvents.map((e) => (
+                <div key={e.id} className="rounded-lg border border-line bg-surface/60 p-2">
+                  <div className="text-sm font-medium text-slate-100">{e.time}</div>
+                  <div className="mt-1 text-xs text-slate-300">GHI CHÚ: {e.note}</div>
+                  <button
+                    type="button"
+                    className="mt-2 rounded border border-line px-2 py-1 text-xs text-muted hover:border-down hover:text-down"
+                    onClick={async () => {
+                      const r = await fetch("/api/schedule", {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: e.id }),
+                      });
+                      if (!r.ok) return;
+                      setEvents((prev) => prev.filter((x) => x.id !== e.id));
+                    }}
+                  >
+                    Xoá
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
         </section>
       </div>
     </main>

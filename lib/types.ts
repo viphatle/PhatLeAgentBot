@@ -34,3 +34,13 @@ export type Quote = {
 };
 
 export type ScheduleNoteMap = Record<string, string>;
+
+export type ScheduleEvent = {
+  id: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+  note: string;
+  created_at: string;
+  remind_1d_sent_at?: string;
+  remind_1h_sent_at?: string;
+};
