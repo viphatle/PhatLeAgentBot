@@ -1,0 +1,6 @@
+.next/
+node_modules/
+.local-kv/
+.tools/
+.env
+.env*.local

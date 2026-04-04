@@ -1,0 +1,45 @@
+Stock Tracker — triển khai serverless trên Vercel
+==================================================
+
+1) Cài & chạy local
+   cd stock-tracker
+   npm install
+   npm run dev
+   Mở http://localhost:3000
+   Không có KV: dữ liệu lưu tại .local-kv/data.json (chỉ máy bạn).
+
+2) Vercel KV
+   - Vercel Dashboard → Storage → Create → KV → Connect vào project.
+   - Deploy lại để có biến KV_REST_API_URL / KV_REST_API_TOKEN.
+
+3) Telegram
+   - Tạo bot @BotFather, dán token trên UI.
+   - Chat ID: /start bot → getUpdates như hướng dẫn trong UI.
+
+4) Cron & bí mật
+   - Project Settings → thêm CRON_SECRET (Vercel gửi Authorization: Bearer <CRON_SECRET> khi gọi cron).
+   - File vercel.json có 2 lịch (mỗi lịch tối đa 1 lần/ngày — phù hợp gói Hobby):
+     • 0 2 * * 1-5  → ~09:00 GMT+7
+     • 30 7 * * 1-5 → ~14:30 GMT+7
+   - Nếu tài khoản chỉ cho 1 cron: xóa một mục trong vercel.json.
+   - Cron chỉ GỬI khi đang trong phiên VN; ngoài phiên trả skipped (HTTP 200).
+
+5) Gửi báo cáo từ web (POST /api/report)
+   - Local / không đặt ADMIN_SECRET: không cần header.
+   - Production: đặt ADMIN_SECRET trên Vercel; trong UI nhập cùng giá trị vào "Admin secret"
+     (lưu localStorage) để nút "Gửi báo cáo thử" gửi header Authorization: Bearer ...
+
+6) Giá cổ phiếu (thị trường thực)
+   - Ưu tiên Yahoo Finance chart API (SYMBOL.VN / SYMBOL.HNO) — ổn định từ server Vercel.
+   - Fallback: TCBS, rồi VNDIRECT (dễ timeout/chặn từ datacenter). Cuối cùng mới là giá thử nghiệm (mock).
+   - Một số mã HNX/UPCOM có thể không có trên Yahoo → có thể vẫn fallback/mock.
+
+0) Danh sách theo dõi
+   - Chỉ nhập mã (VCB, FPT…). Tên công ty + sàn lấy từ Yahoo khi thêm; mã không có trên Yahoo sẽ báo lỗi 404.
+
+7) Tần suất trong phiên (gói miễn phí)
+   - Vercel Hobby: cron không thể "mỗi vài phút". Để ping dày trong giờ giao dịch, dùng dịch vụ
+     ngoài (GitHub Actions, cron-job.org, Uptime Kuma...) GET:
+     https://<domain>/api/cron/report
+     với header Authorization: Bearer <CRON_SECRET>
+   - Hoặc nâng cấp plan Vercel để cron tần suất cao hơn.

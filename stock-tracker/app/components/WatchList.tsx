@@ -1,0 +1,84 @@
+"use client";
+
+import type { WatchItem } from "@/lib/types";
+import { StockCard, type QuoteView } from "./StockCard";
+
+export function WatchList({
+  items,
+  quotes,
+  loadingIds,
+  onAdd,
+  onDelete,
+}: {
+  items: WatchItem[];
+  quotes: Record<string, QuoteView>;
+  loadingIds: Record<string, boolean>;
+  onAdd: (symbol: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  return (
+    <section className="rounded-xl border border-line bg-card/90 p-5 shadow-lg backdrop-blur">
+      <h2 className="text-lg font-semibold text-white">Danh sách theo dõi</h2>
+      <form
+        className="mt-4 flex flex-wrap gap-2"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const form = e.currentTarget;
+          const fd = new FormData(form);
+          const symbol = String(fd.get("symbol") ?? "").trim();
+          if (!symbol) return;
+          await onAdd(symbol);
+          form.reset();
+        }}
+      >
+        <input
+          name="symbol"
+          placeholder="Mã cổ phiếu (vd: VCB, FPT)"
+          className="min-w-[200px] flex-1 rounded-lg border border-line bg-surface/80 px-3 py-2 font-mono text-sm uppercase outline-none ring-accent focus:ring-2"
+          maxLength={20}
+          required
+          autoComplete="off"
+        />
+        <button
+          type="submit"
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+        >
+          Thêm
+        </button>
+      </form>
+      <p className="mt-2 text-xs text-muted">
+        Chỉ cần mã — tên công ty và sàn lấy tự động từ Yahoo. Trùng mã sẽ báo lỗi.
+      </p>
+
+      {items.length === 0 ? (
+        <p className="mt-6 text-sm text-muted">
+          Chưa có mã nào. Nhập mã (vd: VCB) để xem giá và nhận báo cáo Telegram.
+        </p>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[520px] text-left text-sm">
+            <thead>
+              <tr className="text-xs uppercase tracking-wide text-muted">
+                <th className="pb-2 min-w-[200px]">Công ty</th>
+                <th className="pb-2">Mã</th>
+                <th className="pb-2">Giá / thay đổi</th>
+                <th className="pb-2 text-right"> </th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <StockCard
+                  key={item.id}
+                  item={item}
+                  quote={quotes[item.symbol] ?? null}
+                  loading={Boolean(loadingIds[item.symbol])}
+                  onDelete={(id) => void onDelete(id)}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}

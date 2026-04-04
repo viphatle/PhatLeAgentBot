@@ -1,0 +1,6 @@
+.env
+
+stock-tracker/node_modules/
+stock-tracker/.next/
+stock-tracker/.local-kv/
+stock-tracker/.tools/
