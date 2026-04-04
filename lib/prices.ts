@@ -10,7 +10,7 @@ function hashSeed(s: string) {
   return Math.abs(h);
 }
 
-function mockQuote(symbol: string, kind: "demo" | "fallback"): Quote {
+function mockQuote(symbol: string): Quote {
   const sym = symbol.toUpperCase().trim();
   const seed = hashSeed(sym);
   const base = 10_000 + (seed % 90_000);
@@ -25,7 +25,7 @@ function mockQuote(symbol: string, kind: "demo" | "fallback"): Quote {
     change,
     change_pct: ref ? (change / ref) * 100 : 0,
     volume: 100_000 + (seed % 4_900_000),
-    source: kind === "demo" ? "mock_demo" : "mock_fallback",
+    source: "mock_demo",
   };
 }
 
@@ -99,10 +99,10 @@ async function fetchQuoteFromVndirect(symbol: string): Promise<Quote | null> {
   }
 }
 
-export async function fetchQuote(symbol: string, opts: { mock: boolean }): Promise<Quote> {
+export async function fetchQuote(symbol: string, opts: { mock: boolean }): Promise<Quote | null> {
   const sym = symbol.toUpperCase().trim();
   if (!sym || sym.length > 20) throw new Error("Mã không hợp lệ");
-  if (opts.mock) return mockQuote(sym, "demo");
+  if (opts.mock) return mockQuote(sym);
 
   const yahoo = await fetchQuoteFromYahoo(sym);
   if (yahoo) return yahoo;
@@ -113,5 +113,5 @@ export async function fetchQuote(symbol: string, opts: { mock: boolean }): Promi
   const vn = await fetchQuoteFromVndirect(sym);
   if (vn) return vn;
 
-  return mockQuote(sym, "fallback");
+  return null;
 }

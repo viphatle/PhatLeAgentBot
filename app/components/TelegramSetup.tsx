@@ -14,6 +14,8 @@ function reportErrorMessage(reason: string | undefined): string {
       return "Chưa có mã cổ phiếu — thêm ít nhất một mã ở danh sách phía trên.";
     case "outside_session":
       return "Cron: ngoài phiên giao dịch (chỉ áp dụng gửi tự động).";
+    case "no_price_data":
+      return "Không lấy được giá thị trường gần nhất cho các mã trong danh sách.";
     default:
       return reason ? `Không gửi được: ${reason}` : "Gửi thất bại (kiểm tra token, Chat ID, ADMIN_SECRET).";
   }

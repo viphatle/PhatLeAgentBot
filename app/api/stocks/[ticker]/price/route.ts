@@ -12,6 +12,12 @@ export async function GET(
   try {
     const settings = await getSettings();
     const q = await fetchQuote(ticker, { mock: settings.mock_prices });
+    if (!q) {
+      return Response.json(
+        { error: "Không lấy được giá thị trường gần nhất cho mã này." },
+        { status: 503 },
+      );
+    }
     void maybeSendPnlSpikeAlert(ticker, q).catch(() => {});
     return Response.json(q);
   } catch (e) {

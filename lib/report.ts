@@ -30,6 +30,7 @@ export async function sendStockDigest(opts: {
   const rows = [];
   for (const w of list) {
     const q = await fetchQuote(w.symbol, { mock: settings.mock_prices });
+    if (!q) continue;
     const buyPrice =
       w.buy_price !== undefined && Number.isFinite(w.buy_price) && w.buy_price > 0
         ? comparableBuyPrice(w.buy_price, q.price)
@@ -48,6 +49,9 @@ export async function sendStockDigest(opts: {
       pnl_pct: pnlPct,
       source: q.source,
     });
+  }
+  if (!rows.length) {
+    return { ok: false as const, reason: "no_price_data" as const };
   }
   const session = `Phiên ${latestTradingDayLabel()} (${opts.sessionLabel})`;
   const text = formatDigest(rows, session, vnTimeLabel());

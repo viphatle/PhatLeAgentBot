@@ -66,11 +66,9 @@ export function StockCard({
               {quote.change.toLocaleString("vi-VN")}, {up ? "+" : ""}
               {quote.change_pct.toFixed(2)}%)
             </span>
-            {(quote.source === "mock_demo" || quote.source === "mock_fallback") && (
+            {quote.source === "mock_demo" && (
               <span className="ml-1 text-xs text-amber-200/90" title="Không phải giá sàn thật">
-                {quote.source === "mock_demo"
-                  ? "giả lập (cài đặt)"
-                  : "thử nghiệm (API lỗi)"}
+                giả lập (cài đặt)
               </span>
             )}
           </span>

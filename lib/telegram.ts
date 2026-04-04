@@ -39,13 +39,11 @@ export function formatDigest(rows: DigestRow[], sessionLabel: string, timeLabel:
     "",
   ];
   let anyDemo = false;
-  let anyFallback = false;
   for (const row of rows) {
     const sym = escapeHtml(row.symbol);
     const name = escapeHtml(row.display_name || row.symbol);
     const visual = trendVisual(row.change);
     if (row.source === "mock_demo") anyDemo = true;
-    if (row.source === "mock_fallback") anyFallback = true;
     lines.push(`${visual.dot} <b>${sym}</b> - ${name}`);
     lines.push(
       `   ${visual.arrow} Giá TT: <code>${row.price.toLocaleString("vi-VN")}</code> | KL: <b>${row.volume.toLocaleString("vi-VN")}</b>`,
@@ -66,12 +64,6 @@ export function formatDigest(rows: DigestRow[], sessionLabel: string, timeLabel:
   }
   if (anyDemo) {
     lines.push("", "<i>Giá giả lập: bạn đang bật «Dùng giá giả lập» trong cài đặt.</i>");
-  }
-  if (anyFallback) {
-    lines.push(
-      "",
-      "<i>Một số giá là số thử nghiệm: Yahoo/VNDIRECT/TCBS đều không lấy được dữ liệu cho mã đó (mã HNX/UPCOM có thể không có trên Yahoo .VN).</i>"
-    );
   }
   lines.push("", `🕐 Cập nhật: ${escapeHtml(timeLabel)}`);
   return lines.join("\n");

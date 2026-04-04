@@ -20,8 +20,8 @@ export type AppSettings = {
   mock_prices: boolean;
 };
 
-/** mock_demo = bật trong cài đặt; mock_fallback = API thật lỗi/không có dữ liệu */
-export type QuoteSource = "yahoo" | "vndirect" | "tcbs" | "mock_demo" | "mock_fallback";
+/** mock_demo = bật trong cài đặt */
+export type QuoteSource = "yahoo" | "vndirect" | "tcbs" | "mock_demo";
 
 export type Quote = {
   symbol: string;
