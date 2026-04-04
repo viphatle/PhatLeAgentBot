@@ -1,3 +1,4 @@
+import { createClient, type RedisClientType } from "redis";
 import type { AppSettings, WatchItem } from "./types";
 
 const WATCHLIST_KEY = "st:watchlist";
@@ -20,7 +21,6 @@ export class KvRequiredError extends Error {
 
 type RedisEnv = {
   url?: string;
-  token?: string;
 };
 
 function resolveRedisEnv(): RedisEnv {
@@ -31,56 +31,51 @@ function resolveRedisEnv(): RedisEnv {
 
   try {
     const parsed = new URL(redisUrl);
-    const tokenFromUrl =
-      parsed.searchParams.get("token") || parsed.searchParams.get("auth_token") || undefined;
-    const password = parsed.password ? decodeURIComponent(parsed.password) : undefined;
-
-    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
-      return {
-        url: `${parsed.protocol}//${parsed.host}${parsed.pathname}`,
-        token: redisToken || tokenFromUrl || password,
-      };
+    if (redisToken && !parsed.password) {
+      parsed.password = redisToken;
+      if (!parsed.username) parsed.username = "default";
     }
-
-    if (parsed.protocol === "redis:" || parsed.protocol === "rediss:") {
-      return {
-        url: `https://${parsed.hostname}`,
-        token: redisToken || password,
-      };
-    }
+    return { url: parsed.toString() };
   } catch {
     return {};
   }
-
-  return {};
 }
 
 function hasRedisConfig() {
   const cfg = resolveRedisEnv();
-  return Boolean(cfg.url && cfg.token);
+  return Boolean(cfg.url);
 }
 
 export function storageReady() {
   return hasRedisConfig();
 }
 
-function normalizeKvEnv() {
+let redisClientPromise: Promise<RedisClientType> | null = null;
+
+async function getRedisClient(): Promise<RedisClientType> {
   const cfg = resolveRedisEnv();
-  if (!cfg.url || !cfg.token) return;
-  if (!process.env.KV_REST_API_URL) process.env.KV_REST_API_URL = cfg.url;
-  if (!process.env.KV_REST_API_TOKEN) process.env.KV_REST_API_TOKEN = cfg.token;
+  if (!cfg.url) throw new KvRequiredError();
+  if (!redisClientPromise) {
+    const client = createClient({ url: cfg.url });
+    redisClientPromise = client.connect().then(() => client);
+  }
+  return redisClientPromise;
 }
 
 async function kvGet<T>(key: string): Promise<T | null> {
-  normalizeKvEnv();
-  const { kv } = await import("@vercel/kv");
-  return (await kv.get<T>(key)) ?? null;
+  const redis = await getRedisClient();
+  const raw = await redis.get(key);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
 }
 
 async function kvSet(key: string, value: unknown) {
-  normalizeKvEnv();
-  const { kv } = await import("@vercel/kv");
-  await kv.set(key, value);
+  const redis = await getRedisClient();
+  await redis.set(key, JSON.stringify(value));
 }
 
 export async function getWatchlist(): Promise<WatchItem[]> {
