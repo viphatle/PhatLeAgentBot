@@ -30,7 +30,7 @@ function monthStartGrid(month: Date) {
 export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
   const [month, setMonth] = useState(() => new Date());
   const [events, setEvents] = useState<ScheduleOccurrence[]>([]);
-  const [selectedDate, setSelectedDate] = useState(() => toDateKey(new Date()));
+  const [selectedDate, setSelectedDate] = useState(() => (embedded ? "" : toDateKey(new Date())));
   const [time, setTime] = useState("09:00");
   const [note, setNote] = useState("");
   const [repeatMode, setRepeatMode] = useState<"none" | "weekly" | "monthly">("none");
@@ -61,7 +61,7 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
   const selectedEvents = useMemo(
     () =>
       events
-        .filter((e) => e.date === selectedDate)
+        .filter((e) => Boolean(selectedDate) && e.date === selectedDate)
         .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)),
     [events, selectedDate],
   );
@@ -89,7 +89,7 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
         </header>
       )}
 
-      <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
+      <div className={`grid gap-6 ${!embedded || selectedDate ? "md:grid-cols-[2fr_1fr]" : "md:grid-cols-1"}`}>
         <section className="rounded-2xl p-4 glass-card">
           <div className="mb-4 flex items-center justify-between">
             <button
@@ -142,8 +142,9 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
           </div>
         </section>
 
-        <section className="rounded-2xl p-4 glass-card">
-          <h2 className="text-lg font-bold text-white">Ghi chú ngày {toViDate(selectedDate)}</h2>
+        {(!embedded || selectedDate) && (
+          <section className="rounded-2xl p-4 glass-card">
+            <h2 className="text-lg font-bold text-white">Ghi chú ngày {toViDate(selectedDate)}</h2>
           <div className="mt-3 grid gap-2">
             <label className="text-xs text-muted">Giờ</label>
             <input
@@ -297,7 +298,8 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
               ))
             )}
           </div>
-        </section>
+          </section>
+        )}
       </div>
     </main>
   );
