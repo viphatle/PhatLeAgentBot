@@ -27,7 +27,7 @@ function monthStartGrid(month: Date) {
   return gridStart;
 }
 
-export function ScheduleBoard() {
+export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
   const [month, setMonth] = useState(() => new Date());
   const [events, setEvents] = useState<ScheduleOccurrence[]>([]);
   const [selectedDate, setSelectedDate] = useState(() => toDateKey(new Date()));
@@ -73,25 +73,21 @@ export function ScheduleBoard() {
   }, [events]);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10 md:px-6">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-black tracking-tight text-white md:text-4xl">Lịch Biểu Nhắc Việc</h1>
-        <div className="flex items-center gap-2">
-          <a
-            href="/"
-            className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100"
-          >
-            Quay trở lại trang chủ
-          </a>
-          <a
-            href="/settings"
-            className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100"
-          >
-            Mở setting
-          </a>
-          <LogoutButton />
-        </div>
-      </header>
+    <main className={embedded ? "" : "mx-auto max-w-6xl px-4 py-10 md:px-6"}>
+      {!embedded && (
+        <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-black tracking-tight text-white md:text-4xl">Lịch Biểu Nhắc Việc</h1>
+          <div className="flex items-center gap-2">
+            <a href="/" className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100">
+              Quay trở lại trang chủ
+            </a>
+            <a href="/settings" className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100">
+              Mở setting
+            </a>
+            <LogoutButton />
+          </div>
+        </header>
+      )}
 
       <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
         <section className="rounded-2xl p-4 glass-card">

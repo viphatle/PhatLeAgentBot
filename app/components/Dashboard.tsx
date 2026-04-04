@@ -3,6 +3,7 @@
 import type { WatchItem } from "@/lib/types";
 import { useCallback, useEffect, useState } from "react";
 import { LogoutButton } from "./LogoutButton";
+import { ScheduleBoard } from "./ScheduleBoard";
 import type { QuoteView } from "./StockCard";
 import { WatchList } from "./WatchList";
 
@@ -154,6 +155,15 @@ export function Dashboard() {
           await refreshList();
         }}
       />
+      <section className="mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-extrabold tracking-tight text-white md:text-2xl">LỊCH BIỂU</h2>
+          <a href="/schedule" className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100">
+            Mở toàn màn hình
+          </a>
+        </div>
+        <ScheduleBoard embedded />
+      </section>
     </main>
   );
 }
