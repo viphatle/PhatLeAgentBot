@@ -1,7 +1,7 @@
 "use client";
 
 import type { WatchItem } from "@/lib/types";
-import { StockCard, type QuoteView } from "./StockCard";
+import { MobileStockCard, StockCard, type QuoteView } from "./StockCard";
 
 function parseBuyPriceInput(value: string): number | undefined {
   const trimmed = value.trim();
@@ -97,29 +97,42 @@ export function WatchList({
           Chưa có mã nào. Nhập mã (vd: VCB) để xem giá và nhận báo cáo Telegram.
         </p>
       ) : (
-        <div className="mt-4 overflow-x-auto rounded-xl border border-line/70 bg-surface/30 p-2">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead>
-              <tr className="text-xs uppercase tracking-wide text-muted">
-                <th className="pb-2 min-w-[200px]">Công ty</th>
-                <th className="pb-2">Mã</th>
-                <th className="pb-2">Giá / thay đổi</th>
-                <th className="pb-2">Giá mua / lãi lỗ</th>
-                <th className="pb-2 text-right"> </th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <StockCard
-                  key={item.id}
-                  item={item}
-                  quote={quotes[item.symbol] ?? null}
-                  loading={Boolean(loadingIds[item.symbol])}
-                  onDelete={(id) => void onDelete(id)}
-                />
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-4">
+          <div className="grid gap-3 md:hidden">
+            {items.map((item) => (
+              <MobileStockCard
+                key={`m-${item.id}`}
+                item={item}
+                quote={quotes[item.symbol] ?? null}
+                loading={Boolean(loadingIds[item.symbol])}
+                onDelete={(id) => void onDelete(id)}
+              />
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto rounded-xl border border-line/70 bg-surface/30 p-2 md:block">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead>
+                <tr className="text-xs uppercase tracking-wide text-muted">
+                  <th className="pb-2 min-w-[200px]">Công ty</th>
+                  <th className="pb-2">Mã</th>
+                  <th className="pb-2">Giá / thay đổi</th>
+                  <th className="pb-2">Giá mua / lãi lỗ</th>
+                  <th className="pb-2 text-right"> </th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <StockCard
+                    key={item.id}
+                    item={item}
+                    quote={quotes[item.symbol] ?? null}
+                    loading={Boolean(loadingIds[item.symbol])}
+                    onDelete={(id) => void onDelete(id)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </section>
