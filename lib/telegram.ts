@@ -13,6 +13,9 @@ export type DigestRow = {
   change: number;
   change_pct: number;
   volume: number;
+  buy_price?: number;
+  pnl_value?: number;
+  pnl_pct?: number;
   source?: string;
 };
 
@@ -20,6 +23,13 @@ function trendVisual(change: number) {
   if (change > 0) return { dot: "🟢", arrow: "📈", sign: "+" };
   if (change < 0) return { dot: "🔴", arrow: "📉", sign: "" };
   return { dot: "🟡", arrow: "➖", sign: "" };
+}
+
+function pnlVisual(pnlPct?: number) {
+  if (pnlPct === undefined || !Number.isFinite(pnlPct)) return { label: "Chưa có", icon: "⚪", sign: "" };
+  if (pnlPct > 0) return { label: "Lãi", icon: "🟢", sign: "+" };
+  if (pnlPct < 0) return { label: "Lỗ", icon: "🔴", sign: "" };
+  return { label: "Hòa vốn", icon: "🟡", sign: "" };
 }
 
 export function formatDigest(rows: DigestRow[], sessionLabel: string, timeLabel: string) {
@@ -37,10 +47,21 @@ export function formatDigest(rows: DigestRow[], sessionLabel: string, timeLabel:
     if (row.source === "mock_demo") anyDemo = true;
     if (row.source === "mock_fallback") anyFallback = true;
     lines.push(`${visual.dot} <b>${sym}</b> - ${name}`);
-    lines.push(`   ${visual.arrow} Giá: <code>${row.price.toLocaleString("vi-VN")}</code>`);
     lines.push(
-      `   Δ: <b>${visual.sign}${row.change.toLocaleString("vi-VN")} (${visual.sign}${row.change_pct.toFixed(2)}%)</b> | KL: ${row.volume.toLocaleString("vi-VN")}`,
+      `   ${visual.arrow} Giá TT: <code>${row.price.toLocaleString("vi-VN")}</code> | KL: <b>${row.volume.toLocaleString("vi-VN")}</b>`,
     );
+    lines.push(
+      `   Δ thị trường: <b>${visual.sign}${row.change.toLocaleString("vi-VN")} (${visual.sign}${row.change_pct.toFixed(2)}%)</b>`,
+    );
+    if (row.buy_price !== undefined && Number.isFinite(row.buy_price)) {
+      const pnl = pnlVisual(row.pnl_pct);
+      lines.push(`   💰 Giá mua: <code>${row.buy_price.toLocaleString("vi-VN")}</code>`);
+      if (row.pnl_value !== undefined && row.pnl_pct !== undefined) {
+        lines.push(
+          `   ${pnl.icon} ${pnl.label}: <b>${pnl.sign}${row.pnl_value.toLocaleString("vi-VN")} (${pnl.sign}${row.pnl_pct.toFixed(2)}%)</b>`,
+        );
+      }
+    }
     lines.push("");
   }
   if (anyDemo) {

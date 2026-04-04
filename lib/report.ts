@@ -1,5 +1,6 @@
 import { getSettings, getWatchlist } from "./kv";
 import { isTradingSession, vnTimeLabel } from "./market";
+import { comparableBuyPrice } from "./pnl";
 import { fetchQuote } from "./prices";
 import { formatDigest, sendTelegramMessage } from "./telegram";
 
@@ -29,6 +30,12 @@ export async function sendStockDigest(opts: {
   const rows = [];
   for (const w of list) {
     const q = await fetchQuote(w.symbol, { mock: settings.mock_prices });
+    const buyPrice =
+      w.buy_price !== undefined && Number.isFinite(w.buy_price) && w.buy_price > 0
+        ? comparableBuyPrice(w.buy_price, q.price)
+        : undefined;
+    const pnlValue = buyPrice !== undefined ? q.price - buyPrice : undefined;
+    const pnlPct = buyPrice !== undefined && pnlValue !== undefined ? (pnlValue / buyPrice) * 100 : undefined;
     rows.push({
       symbol: q.symbol,
       display_name: w.display_name,
@@ -36,6 +43,9 @@ export async function sendStockDigest(opts: {
       change: q.change,
       change_pct: q.change_pct,
       volume: q.volume,
+      buy_price: buyPrice,
+      pnl_value: pnlValue,
+      pnl_pct: pnlPct,
       source: q.source,
     });
   }
