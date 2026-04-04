@@ -1,4 +1,4 @@
-import { createClient, type RedisClientType } from "redis";
+import { createClient } from "redis";
 import type { AppSettings, WatchItem } from "./types";
 
 const WATCHLIST_KEY = "st:watchlist";
@@ -50,16 +50,21 @@ export function storageReady() {
   return hasRedisConfig();
 }
 
-let redisClientPromise: Promise<RedisClientType> | null = null;
+let redisClient: ReturnType<typeof createClient> | null = null;
+let redisConnectPromise: Promise<unknown> | null = null;
 
-async function getRedisClient(): Promise<RedisClientType> {
+async function getRedisClient() {
   const cfg = resolveRedisEnv();
   if (!cfg.url) throw new KvRequiredError();
-  if (!redisClientPromise) {
-    const client = createClient({ url: cfg.url });
-    redisClientPromise = client.connect().then(() => client);
+  if (!redisClient) {
+    redisClient = createClient({ url: cfg.url });
+    redisConnectPromise = redisClient.connect();
   }
-  return redisClientPromise;
+  if (redisConnectPromise) {
+    await redisConnectPromise;
+    redisConnectPromise = null;
+  }
+  return redisClient;
 }
 
 async function kvGet<T>(key: string): Promise<T | null> {

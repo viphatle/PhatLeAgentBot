@@ -95,7 +95,7 @@ export function Dashboard() {
           Theo dõi cổ phiếu — chỉ nhập mã
         </h1>
         <p className="mt-2 max-w-xl text-sm text-muted">
-          Next.js serverless trên Vercel — watchlist trong KV (hoặc file khi dev). Giá thị trường:{" "}
+          Next.js serverless trên Vercel — watchlist/settings lưu trên Redis. Giá thị trường:{" "}
           <strong className="text-slate-300">Yahoo Finance</strong> (mã dạng VCB → VCB.VN), sau đó TCBS,
           VNDIRECT nếu cần. Dữ liệu Yahoo có thể trễ vài phút so với sàn; không phải bảng giá niêm yết chính thức.
         </p>
@@ -105,7 +105,7 @@ export function Dashboard() {
           </span>
           {!storageOk && (
             <span className="inline-flex rounded-full border border-down/50 bg-down/10 px-3 py-1 text-xs text-down">
-              Vercel: chưa gắn KV — không lưu được watchlist/settings. Tạo Vercel KV và redeploy.
+              Vercel: chưa gắn Redis — không lưu được watchlist/settings. Thêm REDIS_URL và redeploy.
             </span>
           )}
         </div>
