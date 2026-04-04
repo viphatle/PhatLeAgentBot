@@ -4,14 +4,70 @@
 
 :root {
   color-scheme: dark;
+  --bg0: #07101a;
+  --bg1: #0b1825;
+  --bg2: #102234;
+  --ink: #e8eef6;
+  --muted: #95a7bd;
+  --line: #27374a;
+  --card: #0f1a27cc;
+  --accent: #2ea4ff;
+  --up: #2fd28b;
+  --down: #ff6b6b;
 }
 
 body {
-  @apply bg-surface text-slate-100 antialiased min-h-screen;
-  background-image: radial-gradient(
-      1200px 600px at 10% -10%,
-      rgba(30, 58, 95, 0.5) 0%,
-      transparent 50%
-    ),
-    radial-gradient(800px 400px at 100% 0%, rgba(45, 31, 61, 0.45) 0%, transparent 45%);
+  @apply antialiased min-h-screen;
+  color: var(--ink);
+  background:
+    radial-gradient(900px 540px at 10% -5%, rgba(35, 124, 217, 0.22) 0%, transparent 56%),
+    radial-gradient(760px 480px at 95% 0%, rgba(8, 168, 130, 0.2) 0%, transparent 52%),
+    linear-gradient(160deg, var(--bg0), var(--bg1) 45%, var(--bg2));
+}
+
+::selection {
+  background: rgba(46, 164, 255, 0.3);
+}
+
+.glass-card {
+  border: 1px solid rgba(148, 167, 196, 0.24);
+  background: linear-gradient(180deg, rgba(20, 33, 49, 0.78), rgba(12, 24, 38, 0.88));
+  box-shadow:
+    0 10px 30px rgba(3, 8, 15, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(10px);
+}
+
+.soft-pill {
+  border: 1px solid rgba(148, 167, 196, 0.22);
+  background: rgba(17, 28, 42, 0.65);
+}
+
+.neo-input {
+  border: 1px solid rgba(137, 160, 190, 0.3);
+  background: rgba(11, 22, 35, 0.82);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.neo-input:focus {
+  border-color: rgba(46, 164, 255, 0.8);
+  box-shadow: 0 0 0 3px rgba(46, 164, 255, 0.16);
+}
+
+.brand-btn {
+  background: linear-gradient(135deg, #1989e8, #2ea4ff);
+  box-shadow: 0 8px 18px rgba(19, 120, 208, 0.34);
+}
+
+.brand-btn:hover {
+  filter: brightness(1.06);
+}
+
+.subtle-btn {
+  border: 1px solid rgba(148, 167, 196, 0.26);
+  background: rgba(15, 28, 43, 0.58);
+}
+
+.subtle-btn:hover {
+  border-color: rgba(46, 164, 255, 0.66);
 }

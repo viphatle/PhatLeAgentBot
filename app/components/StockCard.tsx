@@ -44,10 +44,10 @@ export function StockCard({
   const viName = item.display_name_vi || lookupCompanyNameVi(item.symbol);
 
   return (
-    <tr className="border-b border-line/80">
+    <tr className="border-b border-line/70 last:border-b-0">
       <td className="max-w-[280px] py-3 pr-3">
-        <div className="font-medium leading-snug text-slate-100">{item.display_name}</div>
-        {viName ? <div className="mt-0.5 text-xs leading-snug text-slate-300">{viName}</div> : null}
+        <div className="font-semibold leading-snug text-slate-100">{item.display_name}</div>
+        {viName ? <div className="mt-0.5 text-xs leading-snug text-slate-400">{viName}</div> : null}
         {sub ? (
           <div className="mt-0.5 text-xs leading-snug text-muted" title={sub}>
             {sub}
@@ -95,7 +95,7 @@ export function StockCard({
         <button
           type="button"
           onClick={() => onDelete(item.id)}
-          className="rounded-lg border border-line px-2 py-1 text-xs text-muted hover:border-down hover:text-down"
+          className="rounded-lg subtle-btn px-2 py-1 text-xs text-slate-300 hover:text-down"
         >
           Xóa
         </button>

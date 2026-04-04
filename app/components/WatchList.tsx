@@ -25,20 +25,20 @@ export function WatchList({
   onDelete: (id: string) => Promise<void>;
 }) {
   return (
-    <section className="rounded-xl border border-line bg-card/90 p-5 shadow-lg backdrop-blur">
-      <h2 className="text-lg font-semibold text-white">MÃ CK:</h2>
+    <section className="rounded-2xl p-5 glass-card md:p-6">
+      <h2 className="text-lg font-bold tracking-wide text-white">MÃ CK:</h2>
       {items.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {items.slice(0, 3).map((item) => (
             <span
               key={`chip-${item.id}`}
-              className="inline-flex rounded-full border border-line bg-surface/80 px-2.5 py-1 font-mono text-xs text-slate-200"
+              className="inline-flex rounded-full soft-pill px-2.5 py-1 font-mono text-xs text-slate-200"
             >
               {item.symbol}
             </span>
           ))}
           {items.length > 3 && (
-            <span className="inline-flex rounded-full border border-line bg-surface/50 px-2.5 py-1 text-xs text-muted">
+            <span className="inline-flex rounded-full soft-pill px-2.5 py-1 text-xs text-slate-300">
               +{items.length - 3} mã
             </span>
           )}
@@ -65,7 +65,7 @@ export function WatchList({
         <input
           name="symbol"
           placeholder="Mã cổ phiếu (vd: VCB, FPT)"
-          className="min-w-[200px] flex-1 rounded-lg border border-line bg-surface/80 px-3 py-2 font-mono text-sm uppercase outline-none ring-accent focus:ring-2"
+          className="neo-input min-w-[200px] flex-1 rounded-lg px-3 py-2 font-mono text-sm uppercase text-slate-100 outline-none"
           maxLength={20}
           required
           autoComplete="off"
@@ -76,17 +76,17 @@ export function WatchList({
           step="0.01"
           min="0"
           placeholder="Giá đã mua (tuỳ chọn)"
-          className="w-[220px] rounded-lg border border-line bg-surface/80 px-3 py-2 font-mono text-sm outline-none ring-accent focus:ring-2"
+          className="neo-input w-[220px] rounded-lg px-3 py-2 font-mono text-sm text-slate-100 outline-none"
           autoComplete="off"
         />
         <button
           type="submit"
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+          className="brand-btn rounded-lg px-4 py-2 text-sm font-semibold text-white"
         >
           Thêm
         </button>
       </form>
-      <p className="mt-2 text-xs text-muted">
+      <p className="mt-2 text-xs text-slate-400">
         Chỉ cần mã — hỗ trợ HOSE/HNX/UPCOM. Nếu Yahoo không có metadata thì vẫn thêm được bằng thông tin mặc định.
       </p>
 
@@ -95,7 +95,7 @@ export function WatchList({
           Chưa có mã nào. Nhập mã (vd: VCB) để xem giá và nhận báo cáo Telegram.
         </p>
       ) : (
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-4 overflow-x-auto rounded-xl border border-line/70 bg-surface/30 p-2">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead>
               <tr className="text-xs uppercase tracking-wide text-muted">

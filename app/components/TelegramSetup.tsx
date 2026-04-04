@@ -54,9 +54,9 @@ export function TelegramSetup({
   }, []);
 
   return (
-    <section className="rounded-xl border border-line bg-card/90 p-5 shadow-lg backdrop-blur">
-      <h2 className="text-lg font-semibold text-white">Telegram &amp; báo cáo</h2>
-      <p className="mt-2 rounded-lg border border-line/80 bg-surface/50 px-3 py-2 text-xs text-muted">
+    <section className="rounded-2xl p-5 glass-card md:p-6">
+      <h2 className="text-lg font-bold tracking-wide text-white">Telegram &amp; báo cáo</h2>
+      <p className="mt-3 rounded-lg border border-line/80 bg-surface/40 px-3 py-2 text-xs text-slate-300">
         Cần đủ <strong className="text-slate-300">Bot token</strong> và{" "}
         <strong className="text-slate-300">Chat ID</strong>. Nút «Gửi báo cáo thử» sẽ{" "}
         <strong className="text-slate-300">lưu giá trị đang nhập</strong> (token + chat) rồi mới gửi.
@@ -95,7 +95,7 @@ export function TelegramSetup({
             value={tokenInput}
             onChange={(e) => setTokenInput(e.target.value)}
             placeholder={hasToken ? "Đã lưu — nhập mới để thay" : "Dán token"}
-            className="rounded-lg border border-line bg-surface/80 px-3 py-2 text-slate-100 outline-none ring-accent focus:ring-2"
+            className="neo-input rounded-lg px-3 py-2 text-slate-100 outline-none"
             autoComplete="off"
           />
         </label>
@@ -105,7 +105,7 @@ export function TelegramSetup({
             value={chatId}
             onChange={(e) => setChatId(e.target.value)}
             placeholder="Số chat cá nhân hoặc nhóm"
-            className="rounded-lg border border-line bg-surface/80 px-3 py-2 text-slate-100 outline-none ring-accent focus:ring-2"
+            className="neo-input rounded-lg px-3 py-2 text-slate-100 outline-none"
             autoComplete="off"
           />
         </label>
@@ -126,20 +126,20 @@ export function TelegramSetup({
             value={adminSecret}
             onChange={(e) => setAdminSecret(e.target.value)}
             placeholder="Để trống nếu chưa bật ADMIN_SECRET"
-            className="rounded-lg border border-line bg-surface/80 px-3 py-2 text-slate-100 outline-none ring-accent focus:ring-2"
+            className="neo-input rounded-lg px-3 py-2 text-slate-100 outline-none"
             autoComplete="off"
           />
         </label>
         <div className="flex flex-wrap gap-2">
           <button
             type="submit"
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+            className="brand-btn rounded-lg px-4 py-2 text-sm font-semibold text-white"
           >
             Lưu cấu hình
           </button>
           <button
             type="button"
-            className="rounded-lg border border-line px-4 py-2 text-sm text-slate-200 hover:border-accent"
+            className="rounded-lg subtle-btn px-4 py-2 text-sm text-slate-200"
             onClick={async () => {
               setMsg(null);
               const saveBody: Record<string, unknown> = {

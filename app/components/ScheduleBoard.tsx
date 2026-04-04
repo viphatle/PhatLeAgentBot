@@ -69,23 +69,23 @@ export function ScheduleBoard() {
   }, [events]);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10">
+    <main className="mx-auto max-w-6xl px-4 py-10 md:px-6">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-white md:text-3xl">Lịch Biểu Nhắc Việc</h1>
+        <h1 className="text-2xl font-black tracking-tight text-white md:text-4xl">Lịch Biểu Nhắc Việc</h1>
         <a
           href="/"
-          className="rounded-lg border border-line px-3 py-1.5 text-sm text-slate-200 hover:border-accent"
+          className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100"
         >
           Về danh sách chứng khoán
         </a>
       </header>
 
       <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
-        <section className="rounded-xl border border-line bg-card/90 p-4">
+        <section className="rounded-2xl p-4 glass-card">
           <div className="mb-4 flex items-center justify-between">
             <button
               type="button"
-              className="rounded-md border border-line px-3 py-1 text-sm"
+              className="rounded-md subtle-btn px-3 py-1 text-sm"
               onClick={() => setMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
             >
               Tháng trước
@@ -95,7 +95,7 @@ export function ScheduleBoard() {
             </div>
             <button
               type="button"
-              className="rounded-md border border-line px-3 py-1 text-sm"
+              className="rounded-md subtle-btn px-3 py-1 text-sm"
               onClick={() => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
             >
               Tháng sau
@@ -121,8 +121,8 @@ export function ScheduleBoard() {
                   onClick={() => setSelectedDate(key)}
                   className={`rounded-md border px-2 py-2 text-sm ${
                     active
-                      ? "border-accent bg-accent/20 text-white"
-                      : "border-line bg-surface/60 text-slate-200"
+                      ? "border-accent bg-accent/25 text-white"
+                      : "border-line bg-surface/40 text-slate-200"
                   } ${inMonth ? "" : "opacity-45"}`}
                 >
                   <div>{d.getDate()}</div>
@@ -133,27 +133,27 @@ export function ScheduleBoard() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-line bg-card/90 p-4">
-          <h2 className="text-lg font-semibold text-white">Ghi chú ngày {toViDate(selectedDate)}</h2>
+        <section className="rounded-2xl p-4 glass-card">
+          <h2 className="text-lg font-bold text-white">Ghi chú ngày {toViDate(selectedDate)}</h2>
           <div className="mt-3 grid gap-2">
             <label className="text-xs text-muted">Giờ</label>
             <input
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="rounded-lg border border-line bg-surface/80 px-3 py-2 text-sm text-slate-100 outline-none ring-accent focus:ring-2"
+              className="neo-input rounded-lg px-3 py-2 text-sm text-slate-100 outline-none"
             />
           </div>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="GHI CHÚ: nội dung cần nhắc..."
-            className="mt-3 h-32 w-full rounded-lg border border-line bg-surface/80 p-3 text-sm text-slate-100 outline-none ring-accent focus:ring-2"
+            className="neo-input mt-3 h-32 w-full rounded-lg p-3 text-sm text-slate-100 outline-none"
           />
           <div className="mt-3 flex gap-2">
             <button
               type="button"
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"
+              className="brand-btn rounded-lg px-4 py-2 text-sm font-semibold text-white"
               onClick={async () => {
                 setMsg(null);
                 const r = await fetch("/api/schedule", {
@@ -183,12 +183,12 @@ export function ScheduleBoard() {
               <p className="text-sm text-muted">Chưa có ghi chú cho ngày này.</p>
             ) : (
               selectedEvents.map((e) => (
-                <div key={e.id} className="rounded-lg border border-line bg-surface/60 p-2">
+                <div key={e.id} className="rounded-lg border border-line/70 bg-surface/50 p-2.5">
                   <div className="text-sm font-medium text-slate-100">{e.time}</div>
                   <div className="mt-1 text-xs text-slate-300">GHI CHÚ: {e.note}</div>
                   <button
                     type="button"
-                    className="mt-2 rounded border border-line px-2 py-1 text-xs text-muted hover:border-down hover:text-down"
+                    className="mt-2 rounded subtle-btn px-2 py-1 text-xs text-slate-300 hover:text-down"
                     onClick={async () => {
                       const r = await fetch("/api/schedule", {
                         method: "DELETE",

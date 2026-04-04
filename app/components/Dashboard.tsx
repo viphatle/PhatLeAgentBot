@@ -89,30 +89,30 @@ export function Dashboard() {
   }, [refreshHealth]);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10">
-      <header className="mb-8">
+    <main className="mx-auto max-w-5xl px-4 py-10 md:px-6">
+      <header className="mb-8 rounded-2xl p-5 glass-card md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
+          <h1 className="text-2xl font-black tracking-tight text-white md:text-4xl">
             DANH SÁCH CHỨNG KHOÁN
           </h1>
           <a
             href="/schedule"
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-slate-200 hover:border-accent"
+            className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100"
           >
             Mở lịch biểu
           </a>
         </div>
-        <p className="mt-2 max-w-xl text-sm text-muted">
+        <p className="mt-3 max-w-2xl text-sm text-slate-300">
           Next.js serverless trên Vercel — watchlist/settings lưu trên Redis. Giá thị trường:{" "}
           <strong className="text-slate-300">Yahoo Finance</strong> (mã dạng VCB → VCB.VN), sau đó TCBS,
           VNDIRECT nếu cần. Dữ liệu Yahoo có thể trễ vài phút so với sàn; không phải bảng giá niêm yết chính thức.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <span className="inline-flex rounded-full border border-line bg-card px-3 py-1 text-xs text-slate-200">
+          <span className="inline-flex rounded-full soft-pill px-3 py-1 text-xs text-slate-200">
             {sessionLabel}
           </span>
           {!storageOk && (
-            <span className="inline-flex rounded-full border border-down/50 bg-down/10 px-3 py-1 text-xs text-down">
+            <span className="inline-flex rounded-full border border-down/50 bg-down/10 px-3 py-1 text-xs font-semibold text-down">
               Vercel: chưa gắn Redis — không lưu được watchlist/settings. Thêm REDIS_URL và redeploy.
             </span>
           )}
