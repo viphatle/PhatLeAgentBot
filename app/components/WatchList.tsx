@@ -27,7 +27,7 @@ export function WatchList({
   return (
     <section className="rounded-2xl p-5 glass-card md:p-6">
       <h2 className="text-lg font-bold tracking-wide text-white">
-        THÔNG TIN CHỨNG KHOÁN THEO DÕI:
+        THÔNG TIN CHỨNG KHOÁN:
       </h2>
       {items.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">

@@ -90,7 +90,7 @@ export function Dashboard() {
       <header className="mb-8 rounded-2xl p-5 glass-card md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-black tracking-tight text-white md:text-4xl">
-            LỊCH BIỂU THEO DÕI:
+            LỊCH BIỂU:
           </h1>
           <div className="flex items-center gap-2">
             <a
@@ -103,7 +103,7 @@ export function Dashboard() {
           </div>
         </div>
         <p className="mt-3 max-w-2xl text-sm text-slate-300">
-          Lịch nhắc hẹn, ghi chú các sự kiện đang diễn ra
+          Nhắc lịch, theo dõi các sự kiện và hoạt động cá nhân.!
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {sessionLabel ? (
