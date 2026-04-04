@@ -10,6 +10,16 @@ export type QuoteView = {
   source: string;
 } | null;
 
+function comparableBuyPrice(buyPrice: number, marketPrice: number): number {
+  if (!Number.isFinite(buyPrice) || !Number.isFinite(marketPrice) || buyPrice <= 0 || marketPrice <= 0) {
+    return buyPrice;
+  }
+  const ratio = marketPrice / buyPrice;
+  if (ratio >= 100 && ratio <= 10_000) return buyPrice * 1000;
+  if (ratio <= 0.01 && ratio >= 0.0001) return buyPrice / 1000;
+  return buyPrice;
+}
+
 export function StockCard({
   item,
   quote,
@@ -25,11 +35,16 @@ export function StockCard({
   const color = quote ? (up ? "text-up" : "text-down") : "text-muted";
   const hasBuyPrice = Number.isFinite(item.buy_price);
   const buyPrice = hasBuyPrice ? Number(item.buy_price) : undefined;
-  const hasPnl = Boolean(quote && buyPrice);
-  const pnlValue = hasPnl && quote && buyPrice ? quote.price - buyPrice : null;
-  const pnlPct = hasPnl && quote && buyPrice ? ((quote.price - buyPrice) / buyPrice) * 100 : null;
+  const normalizedBuyPrice = quote && buyPrice ? comparableBuyPrice(buyPrice, quote.price) : buyPrice;
+  const hasPnl = Boolean(quote && normalizedBuyPrice);
+  const pnlValue = hasPnl && quote && normalizedBuyPrice ? quote.price - normalizedBuyPrice : null;
+  const pnlPct =
+    hasPnl && quote && normalizedBuyPrice
+      ? ((quote.price - normalizedBuyPrice) / normalizedBuyPrice) * 100
+      : null;
   const pnlUp = pnlValue !== null ? pnlValue >= 0 : true;
   const pnlColor = pnlValue !== null ? (pnlUp ? "text-up" : "text-down") : "text-muted";
+  const pnlLabel = pnlValue === null ? "" : pnlValue > 0 ? "Lãi" : pnlValue < 0 ? "Lỗ" : "Hòa vốn";
 
   const sub = [item.short_name, item.full_exchange || item.exchange, item.yahoo_symbol]
     .filter(Boolean)
@@ -76,7 +91,7 @@ export function StockCard({
               <div className="text-xs text-muted">Chưa có giá thị trường</div>
             ) : (
               <div className={`text-xs ${pnlColor}`}>
-                {pnlUp ? "+" : ""}
+                {pnlLabel}: {pnlUp ? "+" : ""}
                 {pnlValue.toLocaleString("vi-VN")} ({pnlUp ? "+" : ""}
                 {pnlPct.toFixed(2)}%)
               </div>

@@ -3,6 +3,14 @@
 import type { WatchItem } from "@/lib/types";
 import { StockCard, type QuoteView } from "./StockCard";
 
+function parseBuyPriceInput(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const normalized = trimmed.replace(/[_\s,]/g, "");
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : NaN;
+}
+
 export function WatchList({
   items,
   quotes,
@@ -27,7 +35,7 @@ export function WatchList({
           const fd = new FormData(form);
           const symbol = String(fd.get("symbol") ?? "").trim();
           const rawBuyPrice = String(fd.get("buy_price") ?? "").trim();
-          const buyPrice = rawBuyPrice ? Number(rawBuyPrice) : undefined;
+          const buyPrice = parseBuyPriceInput(rawBuyPrice);
           if (!symbol) return;
           if (buyPrice !== undefined && (!Number.isFinite(buyPrice) || buyPrice <= 0)) {
             alert("Giá mua không hợp lệ");

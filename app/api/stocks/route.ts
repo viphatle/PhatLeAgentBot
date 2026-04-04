@@ -4,6 +4,13 @@ import { resolveYahooInstrument } from "@/lib/yahoo";
 
 export const dynamic = "force-dynamic";
 
+function parseBuyPriceInput(value: number | string | undefined): number | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "number") return value;
+  const normalized = value.trim().replace(/[_\s,]/g, "");
+  return Number(normalized);
+}
+
 export async function GET() {
   const items = await getWatchlist();
   return Response.json(items);
@@ -16,11 +23,7 @@ export async function POST(req: Request) {
     if (!symbol || symbol.length > 20) {
       return Response.json({ error: "Mã không hợp lệ" }, { status: 400 });
     }
-    const rawBuyPrice = body.buy_price;
-    const buyPrice =
-      rawBuyPrice === undefined || rawBuyPrice === null || rawBuyPrice === ""
-        ? undefined
-        : Number(rawBuyPrice);
+    const buyPrice = parseBuyPriceInput(body.buy_price);
     if (buyPrice !== undefined && (!Number.isFinite(buyPrice) || buyPrice <= 0)) {
       return Response.json({ error: "Giá mua không hợp lệ" }, { status: 400 });
     }
