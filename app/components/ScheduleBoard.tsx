@@ -83,6 +83,12 @@ export function ScheduleBoard() {
           >
             Quay trở lại trang chủ
           </a>
+          <a
+            href="/settings"
+            className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100"
+          >
+            Mở setting
+          </a>
           <LogoutButton />
         </div>
       </header>

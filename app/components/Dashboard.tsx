@@ -3,7 +3,6 @@
 import type { WatchItem } from "@/lib/types";
 import { useCallback, useEffect, useState } from "react";
 import { LogoutButton } from "./LogoutButton";
-import { TelegramSetup } from "./TelegramSetup";
 import type { QuoteView } from "./StockCard";
 import { WatchList } from "./WatchList";
 
@@ -99,6 +98,12 @@ export function Dashboard() {
             >
               Mở lịch biểu
             </a>
+            <a
+              href="/settings"
+              className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100"
+            >
+              Mở setting
+            </a>
             <LogoutButton />
           </div>
         </div>
@@ -119,39 +124,36 @@ export function Dashboard() {
         </div>
       </header>
 
-      <div className="flex flex-col gap-6">
-        <WatchList
-          items={items}
-          quotes={quotes}
-          loadingIds={loading}
-          onAdd={async (symbol, buyPrice) => {
-            const r = await fetch("/api/stocks", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                symbol,
-                buy_price: buyPrice,
-              }),
-            });
-            if (!r.ok) {
-              const j = await r.json().catch(() => ({}));
-              alert(j?.error ?? "Không thêm được");
-              return;
-            }
-            await refreshList();
-          }}
-          onDelete={async (id) => {
-            const r = await fetch("/api/stocks", {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id }),
-            });
-            if (!r.ok) return;
-            await refreshList();
-          }}
-        />
-        <TelegramSetup onSaved={() => void refreshList()} />
-      </div>
+      <WatchList
+        items={items}
+        quotes={quotes}
+        loadingIds={loading}
+        onAdd={async (symbol, buyPrice) => {
+          const r = await fetch("/api/stocks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              symbol,
+              buy_price: buyPrice,
+            }),
+          });
+          if (!r.ok) {
+            const j = await r.json().catch(() => ({}));
+            alert(j?.error ?? "Không thêm được");
+            return;
+          }
+          await refreshList();
+        }}
+        onDelete={async (id) => {
+          const r = await fetch("/api/stocks", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id }),
+          });
+          if (!r.ok) return;
+          await refreshList();
+        }}
+      />
     </main>
   );
 }
