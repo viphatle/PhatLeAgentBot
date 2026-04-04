@@ -51,20 +51,40 @@ const PERIODS: Array<{ id: Period; label: string }> = [
   { id: "year", label: "Năm" },
 ];
 
+function dateShort(ymd: string) {
+  const [y, m, d] = ymd.split("-");
+  return `${d}/${m}/${y.slice(2)}`;
+}
+
+function axisTicks(min: number, max: number, count: number) {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return [];
+  if (count < 2) return [min];
+  const step = (max - min) / (count - 1 || 1);
+  return Array.from({ length: count }, (_, i) => min + step * i);
+}
+
 function PriceChart({ points }: { points: HistoryPoint[] }) {
-  const width = 880;
-  const height = 280;
-  const pad = 24;
+  const width = 920;
+  const height = 340;
+  const left = 64;
+  const right = 18;
+  const top = 20;
+  const bottom = 44;
   const values = points.map((p) => p.close);
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = Math.max(1, max - min);
-  const dx = (width - pad * 2) / Math.max(1, points.length - 1);
+  const chartW = width - left - right;
+  const chartH = height - top - bottom;
+  const dx = chartW / Math.max(1, points.length - 1);
+  const yTicks = axisTicks(min, max, 5);
+  const xTickIndexes = [0, Math.floor((points.length - 1) / 2), points.length - 1]
+    .filter((v, i, arr) => arr.indexOf(v) === i);
 
   const path = points
     .map((p, i) => {
-      const x = pad + i * dx;
-      const y = pad + ((max - p.close) / range) * (height - pad * 2);
+      const x = left + i * dx;
+      const y = top + ((max - p.close) / range) * chartH;
       return `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(" ");
@@ -88,6 +108,28 @@ function PriceChart({ points }: { points: HistoryPoint[] }) {
             <stop offset="100%" stopColor={up ? "#2fd28b" : "#ff6b6b"} stopOpacity="0.35" />
           </linearGradient>
         </defs>
+        {yTicks.map((t) => {
+          const y = top + ((max - t) / range) * chartH;
+          return (
+            <g key={`yt-${t}`}>
+              <line x1={left} y1={y} x2={width - right} y2={y} stroke="rgba(148,167,196,0.18)" strokeWidth="1" />
+              <text x={left - 8} y={y + 4} textAnchor="end" fontSize="11" fill="rgba(180,198,220,0.85)">
+                {formatCompactVn(t)}
+              </text>
+            </g>
+          );
+        })}
+        {xTickIndexes.map((idx) => {
+          const x = left + idx * dx;
+          return (
+            <g key={`xt-${idx}`}>
+              <line x1={x} y1={top} x2={x} y2={height - bottom} stroke="rgba(148,167,196,0.1)" strokeWidth="1" />
+              <text x={x} y={height - 14} textAnchor="middle" fontSize="11" fill="rgba(180,198,220,0.85)">
+                {dateShort(points[idx].date)}
+              </text>
+            </g>
+          );
+        })}
         <path d={path} fill="none" stroke="url(#lineGlow)" strokeWidth="3" strokeLinecap="round" />
       </svg>
     </div>
@@ -95,22 +137,88 @@ function PriceChart({ points }: { points: HistoryPoint[] }) {
 }
 
 function VolumeBars({ points }: { points: HistoryPoint[] }) {
+  const width = 920;
+  const height = 220;
+  const left = 64;
+  const right = 18;
+  const top = 16;
+  const bottom = 36;
+  const chartW = width - left - right;
+  const chartH = height - top - bottom;
+  const barW = chartW / Math.max(1, points.length);
   const maxVol = Math.max(...points.map((p) => p.volume), 1);
+  const xTickIndexes = [0, Math.floor((points.length - 1) / 2), points.length - 1]
+    .filter((v, i, arr) => arr.indexOf(v) === i);
+
   return (
     <div className="rounded-xl border border-line/70 bg-surface/40 p-3">
       <div className="mb-2 text-xs text-slate-300">Khối lượng giao dịch theo phiên</div>
-      <div className="flex h-24 items-end gap-1">
-        {points.map((p) => (
-          <div
-            key={`${p.date}-vol`}
-            className="flex-1 rounded-t bg-accent/65"
-            style={{ height: `${Math.max(4, (p.volume / maxVol) * 100)}%` }}
-            title={`${p.date}: ${p.volume.toLocaleString("vi-VN")}`}
-          />
-        ))}
-      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full">
+        {[0, maxVol / 2, maxVol].map((tick) => {
+          const y = top + (1 - tick / maxVol) * chartH;
+          return (
+            <g key={`vt-${tick}`}>
+              <line x1={left} y1={y} x2={width - right} y2={y} stroke="rgba(148,167,196,0.16)" strokeWidth="1" />
+              <text x={left - 8} y={y + 4} textAnchor="end" fontSize="11" fill="rgba(180,198,220,0.85)">
+                {formatCompactVn(tick)}
+              </text>
+            </g>
+          );
+        })}
+        {points.map((p, i) => {
+          const h = Math.max(2, (p.volume / maxVol) * chartH);
+          const x = left + i * barW + 1;
+          const y = top + chartH - h;
+          return (
+            <rect
+              key={`${p.date}-vol`}
+              x={x}
+              y={y}
+              width={Math.max(1, barW - 2)}
+              height={h}
+              rx={2}
+              fill="rgba(56,168,255,0.74)"
+            />
+          );
+        })}
+        {xTickIndexes.map((idx) => {
+          const x = left + idx * barW + barW / 2;
+          return (
+            <text key={`vx-${idx}`} x={x} y={height - 10} textAnchor="middle" fontSize="11" fill="rgba(180,198,220,0.85)">
+              {dateShort(points[idx].date)}
+            </text>
+          );
+        })}
+      </svg>
     </div>
   );
+}
+
+function indicatorInsights(data: HistoryResponse) {
+  const closes = data.points.map((p) => p.close);
+  const price = closes[closes.length - 1];
+  const out: string[] = [];
+  const rsi = data.indicators.rsi14;
+  if (rsi !== null) {
+    if (rsi >= 70) out.push("RSI14 ở vùng cao, rủi ro quá mua.");
+    else if (rsi <= 30) out.push("RSI14 ở vùng thấp, có thể quá bán.");
+    else out.push("RSI14 trung tính, xung lực giá chưa cực đoan.");
+  }
+  const ema12 = data.indicators.ema12;
+  const ema26 = data.indicators.ema26;
+  if (ema12 !== null && ema26 !== null) {
+    out.push(ema12 >= ema26 ? "EMA12 nằm trên EMA26: xu hướng ngắn hạn đang mạnh hơn." : "EMA12 dưới EMA26: xu hướng ngắn hạn đang yếu.");
+  }
+  const sma20 = data.indicators.sma20;
+  if (sma20 !== null) {
+    out.push(price >= sma20 ? "Giá hiện trên SMA20: thiên hướng tích cực trong kỳ." : "Giá hiện dưới SMA20: thiên hướng thận trọng trong kỳ.");
+  }
+  const macd = data.indicators.macd;
+  const signal = data.indicators.signal9;
+  if (macd !== null && signal !== null) {
+    out.push(macd >= signal ? "MACD nằm trên Signal: động lượng tăng đang chiếm ưu thế." : "MACD dưới Signal: động lượng giảm đang chiếm ưu thế.");
+  }
+  return out;
 }
 
 export default function StockDetailPage({ params }: { params: { ticker: string } }) {
@@ -119,6 +227,7 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
   const [data, setData] = useState<HistoryResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [allPeriods, setAllPeriods] = useState<Partial<Record<Period, HistoryResponse>>>({});
 
   useEffect(() => {
     let stop = false;
@@ -140,6 +249,29 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
       stop = true;
     };
   }, [ticker, period]);
+
+  useEffect(() => {
+    let stop = false;
+    void (async () => {
+      const result: Partial<Record<Period, HistoryResponse>> = {};
+      await Promise.all(
+        PERIODS.map(async (p) => {
+          try {
+            const r = await fetch(`/api/stocks/${encodeURIComponent(ticker)}/history?period=${p.id}`);
+            if (!r.ok) return;
+            const j = (await r.json()) as HistoryResponse;
+            result[p.id] = j;
+          } catch {
+            return;
+          }
+        }),
+      );
+      if (!stop) setAllPeriods(result);
+    })();
+    return () => {
+      stop = true;
+    };
+  }, [ticker]);
 
   const latest = useMemo(() => data?.points[data.points.length - 1] ?? null, [data]);
 
@@ -220,6 +352,11 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
                 <div>MACD: <span className="font-mono">{formatCompactVn(data.indicators.macd)}</span></div>
                 <div>Signal9: <span className="font-mono">{formatCompactVn(data.indicators.signal9)}</span></div>
               </div>
+              <div className="mt-3 space-y-1 text-xs text-slate-300">
+                {indicatorInsights(data).map((line) => (
+                  <p key={line}>• {line}</p>
+                ))}
+              </div>
             </div>
             <div className="rounded-xl border border-line/70 bg-surface/35 p-4">
               <h2 className="text-base font-bold text-white">Dự báo xu hướng</h2>
@@ -246,6 +383,41 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
                   Dự báo dựa trên xu hướng tuyến tính ngắn hạn, chỉ dùng tham khảo cá nhân.
                 </p>
               </div>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-line/70 bg-surface/35 p-4">
+            <h2 className="text-base font-bold text-white">Thống kê dự báo theo kỳ</h2>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[680px] text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wide text-muted">
+                    <th className="pb-2">Kỳ lọc</th>
+                    <th className="pb-2">Biến động kỳ</th>
+                    <th className="pb-2">Phiên kế tiếp</th>
+                    <th className="pb-2">Cuối kỳ dự báo</th>
+                    <th className="pb-2">Độ dốc/phiên</th>
+                    <th className="pb-2">Tin cậy</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PERIODS.map((p) => {
+                    const row = allPeriods[p.id];
+                    return (
+                      <tr key={`forecast-${p.id}`} className="border-t border-line/60">
+                        <td className="py-2 font-semibold text-slate-100">{p.label}</td>
+                        <td className={`py-2 ${row && row.stats.period_change_pct >= 0 ? "text-up" : "text-down"}`}>
+                          {row ? formatPercent(row.stats.period_change_pct) : "—"}
+                        </td>
+                        <td className="py-2 font-mono">{row ? formatCompactVn(row.forecast.next_session) : "—"}</td>
+                        <td className="py-2 font-mono">{row ? formatCompactVn(row.forecast.horizon_end) : "—"}</td>
+                        <td className="py-2 font-mono">{row ? formatCompactVn(row.forecast.slope_per_session) : "—"}</td>
+                        <td className="py-2 uppercase">{row ? row.forecast.confidence : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </section>
         </div>
