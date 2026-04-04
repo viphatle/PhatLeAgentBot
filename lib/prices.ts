@@ -40,6 +40,14 @@ function numFromRow(row: Record<string, unknown>, keys: string[]): number {
   return NaN;
 }
 
+// VNDIRECT đôi khi trả giá theo đơn vị "nghìn đồng" (vd 23.1) thay vì VND (23100).
+// Chuẩn hoá về VND để đồng nhất với Yahoo/TCBS và UI.
+function normalizeToVndUnit(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return value;
+  if (value < 1000) return Math.round(value * 1000);
+  return value;
+}
+
 function parseVndirect(sym: string, payload: unknown): Quote | null {
   let rows: unknown[] = [];
   if (Array.isArray(payload)) rows = payload;
@@ -61,8 +69,8 @@ function parseVndirect(sym: string, payload: unknown): Quote | null {
   if (!row && rows[0] && typeof rows[0] === "object") row = rows[0] as Record<string, unknown>;
   if (!row) return null;
 
-  const price = numFromRow(row, ["lastPrice", "matchPrice", "price", "ceilingPrice"]);
-  const ref = numFromRow(row, ["refPrice", "referencePrice", "basicPrice", "priorClose"]);
+  const price = normalizeToVndUnit(numFromRow(row, ["lastPrice", "matchPrice", "price", "ceilingPrice"]));
+  const ref = normalizeToVndUnit(numFromRow(row, ["refPrice", "referencePrice", "basicPrice", "priorClose"]));
   const vol = numFromRow(row, ["totalVolume", "volume", "lot"]);
   if (!Number.isFinite(price) || price <= 0) return null;
   const reference = Number.isFinite(ref) && ref > 0 ? ref : price;
@@ -110,8 +118,8 @@ function parseVndirectHistory(sym: string, payload: unknown): Quote | null {
   const code = String(row.code ?? "").toUpperCase();
   if (code && code !== sym) return null;
 
-  const price = numFromRow(row, ["close", "adClose", "average"]);
-  const reference = numFromRow(row, ["basicPrice", "adOpen", "open", "close"]);
+  const price = normalizeToVndUnit(numFromRow(row, ["close", "adClose", "average"]));
+  const reference = normalizeToVndUnit(numFromRow(row, ["basicPrice", "adOpen", "open", "close"]));
   const volume = numFromRow(row, ["nmVolume", "volume"]);
 
   if (!Number.isFinite(price) || price <= 0) return null;
