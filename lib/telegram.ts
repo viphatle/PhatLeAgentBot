@@ -16,9 +16,16 @@ export type DigestRow = {
   source?: string;
 };
 
+function trendVisual(change: number) {
+  if (change > 0) return { dot: "🟢", arrow: "📈", sign: "+" };
+  if (change < 0) return { dot: "🔴", arrow: "📉", sign: "" };
+  return { dot: "🟡", arrow: "➖", sign: "" };
+}
+
 export function formatDigest(rows: DigestRow[], sessionLabel: string, timeLabel: string) {
   const lines = [
-    `📊 <b>Báo cáo CK Việt Nam</b> (${sessionLabel})`,
+    `📊 <b>DANH SÁCH CHỨNG KHOÁN</b>`,
+    `🏷️ Phiên: <b>${escapeHtml(sessionLabel)}</b>`,
     "",
   ];
   let anyDemo = false;
@@ -26,13 +33,15 @@ export function formatDigest(rows: DigestRow[], sessionLabel: string, timeLabel:
   for (const row of rows) {
     const sym = escapeHtml(row.symbol);
     const name = escapeHtml(row.display_name || row.symbol);
-    const sign = row.change >= 0 ? "+" : "";
+    const visual = trendVisual(row.change);
     if (row.source === "mock_demo") anyDemo = true;
     if (row.source === "mock_fallback") anyFallback = true;
+    lines.push(`${visual.dot} <b>${sym}</b> - ${name}`);
+    lines.push(`   ${visual.arrow} Giá: <code>${row.price.toLocaleString("vi-VN")}</code>`);
     lines.push(
-      `• <b>${sym}</b> ${name}: <code>${row.price.toLocaleString("vi-VN")}</code> ` +
-        `(${sign}${row.change.toLocaleString("vi-VN")}, ${sign}${row.change_pct.toFixed(2)}%) — KL: ${row.volume.toLocaleString("vi-VN")}`
+      `   Δ: <b>${visual.sign}${row.change.toLocaleString("vi-VN")} (${visual.sign}${row.change_pct.toFixed(2)}%)</b> | KL: ${row.volume.toLocaleString("vi-VN")}`,
     );
+    lines.push("");
   }
   if (anyDemo) {
     lines.push("", "<i>Giá giả lập: bạn đang bật «Dùng giá giả lập» trong cài đặt.</i>");
@@ -43,7 +52,7 @@ export function formatDigest(rows: DigestRow[], sessionLabel: string, timeLabel:
       "<i>Một số giá là số thử nghiệm: Yahoo/VNDIRECT/TCBS đều không lấy được dữ liệu cho mã đó (mã HNX/UPCOM có thể không có trên Yahoo .VN).</i>"
     );
   }
-  lines.push("", `🕐 ${escapeHtml(timeLabel)}`);
+  lines.push("", `🕐 Cập nhật: ${escapeHtml(timeLabel)}`);
   return lines.join("\n");
 }
 

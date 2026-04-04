@@ -62,13 +62,16 @@ export async function maybeSendPnlSpikeAlert(symbol: string, quote: Quote) {
 
   const sign = pnlPct >= 0 ? "+" : "";
   const change = quote.price - normalizedBuy;
+  const dot = direction === "up" ? "🟢" : "🔴";
+  const trend = direction === "up" ? "📈 TĂNG MẠNH" : "📉 GIẢM MẠNH";
+  const pnlLabel = direction === "up" ? "Lãi" : "Lỗ";
   const text = [
-    "🚨 <b>Cảnh báo biến động mạnh theo giá mua</b>",
+    `🚨 <b>${trend}</b> (>= ${THRESHOLD_PCT}%)`,
     "",
-    `• <b>${escapeHtml(sym)}</b> ${escapeHtml(item.display_name)}`,
-    `• Giá mua: <code>${normalizedBuy.toLocaleString("vi-VN")}</code>`,
-    `• Giá hiện tại: <code>${quote.price.toLocaleString("vi-VN")}</code>`,
-    `• ${direction === "up" ? "Lãi" : "Lỗ"}: <b>${sign}${change.toLocaleString("vi-VN")} (${sign}${pnlPct.toFixed(2)}%)</b>`,
+    `${dot} <b>${escapeHtml(sym)}</b> - ${escapeHtml(item.display_name)}`,
+    `💰 Giá mua: <code>${normalizedBuy.toLocaleString("vi-VN")}</code>`,
+    `💹 Giá hiện tại: <code>${quote.price.toLocaleString("vi-VN")}</code>`,
+    `📊 ${pnlLabel}: <b>${sign}${change.toLocaleString("vi-VN")} (${sign}${pnlPct.toFixed(2)}%)</b>`,
     "",
     `🕐 ${escapeHtml(vnTimeLabel())}`,
   ].join("\n");
