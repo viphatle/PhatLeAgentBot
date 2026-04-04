@@ -1,8 +1,9 @@
 import { createClient } from "redis";
-import type { AppSettings, WatchItem } from "./types";
+import type { AppSettings, ScheduleNoteMap, WatchItem } from "./types";
 
 const WATCHLIST_KEY = "st:watchlist";
 const SETTINGS_KEY = "st:settings";
+const SCHEDULE_NOTES_KEY = "st:schedule-notes";
 const PNL_ALERT_PREFIX = "st:pnl-alert:";
 
 const defaultSettings = (): AppSettings => ({
@@ -107,6 +108,17 @@ export async function setSettings(partial: Partial<AppSettings>) {
   const next = { ...cur, ...partial };
   await kvSet(SETTINGS_KEY, next);
   return next;
+}
+
+export async function getScheduleNotes(): Promise<ScheduleNoteMap> {
+  if (!hasRedisConfig()) return {};
+  const v = await kvGet<ScheduleNoteMap>(SCHEDULE_NOTES_KEY);
+  return v && typeof v === "object" ? v : {};
+}
+
+export async function setScheduleNotes(next: ScheduleNoteMap) {
+  if (!hasRedisConfig()) throw new KvRequiredError();
+  await kvSet(SCHEDULE_NOTES_KEY, next);
 }
 
 export type PnlAlertState = {

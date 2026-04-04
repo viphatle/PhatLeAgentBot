@@ -32,3 +32,5 @@ export type Quote = {
   volume: number;
   source: QuoteSource;
 };
+
+export type ScheduleNoteMap = Record<string, string>;

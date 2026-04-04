@@ -91,9 +91,17 @@ export function Dashboard() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
       <header className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-          DANH SÁCH CHỨNG KHOÁN
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
+            DANH SÁCH CHỨNG KHOÁN
+          </h1>
+          <a
+            href="/schedule"
+            className="rounded-lg border border-line px-3 py-1.5 text-sm text-slate-200 hover:border-accent"
+          >
+            Mở lịch biểu
+          </a>
+        </div>
         <p className="mt-2 max-w-xl text-sm text-muted">
           Next.js serverless trên Vercel — watchlist/settings lưu trên Redis. Giá thị trường:{" "}
           <strong className="text-slate-300">Yahoo Finance</strong> (mã dạng VCB → VCB.VN), sau đó TCBS,
