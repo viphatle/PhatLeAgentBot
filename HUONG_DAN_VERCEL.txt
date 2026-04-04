@@ -6,14 +6,12 @@ Stock Tracker — triển khai serverless trên Vercel
    npm install
    npm run dev
    Mở http://localhost:3000
-   Không có KV: dữ liệu lưu tại .local-kv/data.json (chỉ máy bạn).
+   Bắt buộc cấu hình REDIS_URL (và REDIS_TOKEN nếu URL không có token).
 
-2) Vercel KV
+2) Vercel Redis
    - Vercel Dashboard → Storage/Marketplace → tạo Redis và Connect vào project.
-   - App chấp nhận 1 trong 3 cặp biến:
-     • KV_REST_API_URL / KV_REST_API_TOKEN
-     • UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN
-     • REDIS_URL / REDIS_TOKEN
+   - App dùng REDIS_URL (và REDIS_TOKEN nếu cần).
+   - Không còn dùng cơ chế lưu file local cũ (.local-kv).
 
 3) Telegram
    - Tạo bot @BotFather, dán token trên UI.

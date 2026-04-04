@@ -1,14 +1,7 @@
-import { promises as fs } from "fs";
-import path from "path";
 import type { AppSettings, WatchItem } from "./types";
 
 const WATCHLIST_KEY = "st:watchlist";
 const SETTINGS_KEY = "st:settings";
-
-type FileStoreShape = {
-  watchlist: WatchItem[];
-  settings: AppSettings;
-};
 
 const defaultSettings = (): AppSettings => ({
   telegram_bot_token: "",
@@ -16,41 +9,66 @@ const defaultSettings = (): AppSettings => ({
   mock_prices: false,
 });
 
-function hasKvConfig() {
-  const hasKv = Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
-  const hasUpstash = Boolean(
-    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN,
-  );
-  const hasRedis = Boolean(process.env.REDIS_URL && process.env.REDIS_TOKEN);
-  return hasKv || hasUpstash || hasRedis;
-}
-
-function isVercel() {
-  return process.env.VERCEL === "1";
-}
-
-/** Trên Vercel bắt buộc có KV; local có thể dùng file .local-kv */
-export function storageReady() {
-  return hasKvConfig() || !isVercel();
-}
-
 export class KvRequiredError extends Error {
   constructor() {
     super(
-      "Thiếu biến Redis/KV. Cần một trong các cặp: KV_REST_API_URL/KV_REST_API_TOKEN, UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN, hoặc REDIS_URL/REDIS_TOKEN.",
+      "Thiếu cấu hình Redis. Cần REDIS_URL (và REDIS_TOKEN nếu URL không chứa sẵn token).",
     );
     this.name = "KvRequiredError";
   }
 }
 
+type RedisEnv = {
+  url?: string;
+  token?: string;
+};
+
+function resolveRedisEnv(): RedisEnv {
+  const redisUrl = process.env.REDIS_URL;
+  const redisToken = process.env.REDIS_TOKEN;
+
+  if (!redisUrl) return {};
+
+  try {
+    const parsed = new URL(redisUrl);
+    const tokenFromUrl =
+      parsed.searchParams.get("token") || parsed.searchParams.get("auth_token") || undefined;
+    const password = parsed.password ? decodeURIComponent(parsed.password) : undefined;
+
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+      return {
+        url: `${parsed.protocol}//${parsed.host}${parsed.pathname}`,
+        token: redisToken || tokenFromUrl || password,
+      };
+    }
+
+    if (parsed.protocol === "redis:" || parsed.protocol === "rediss:") {
+      return {
+        url: `https://${parsed.hostname}`,
+        token: redisToken || password,
+      };
+    }
+  } catch {
+    return {};
+  }
+
+  return {};
+}
+
+function hasRedisConfig() {
+  const cfg = resolveRedisEnv();
+  return Boolean(cfg.url && cfg.token);
+}
+
+export function storageReady() {
+  return hasRedisConfig();
+}
+
 function normalizeKvEnv() {
-  if (!process.env.KV_REST_API_URL) {
-    process.env.KV_REST_API_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_URL;
-  }
-  if (!process.env.KV_REST_API_TOKEN) {
-    process.env.KV_REST_API_TOKEN =
-      process.env.UPSTASH_REDIS_REST_TOKEN || process.env.REDIS_TOKEN;
-  }
+  const cfg = resolveRedisEnv();
+  if (!cfg.url || !cfg.token) return;
+  if (!process.env.KV_REST_API_URL) process.env.KV_REST_API_URL = cfg.url;
+  if (!process.env.KV_REST_API_TOKEN) process.env.KV_REST_API_TOKEN = cfg.token;
 }
 
 async function kvGet<T>(key: string): Promise<T | null> {
@@ -65,71 +83,27 @@ async function kvSet(key: string, value: unknown) {
   await kv.set(key, value);
 }
 
-async function filePath() {
-  const root = process.cwd();
-  const dir = path.join(root, ".local-kv");
-  await fs.mkdir(dir, { recursive: true });
-  return path.join(dir, "data.json");
-}
-
-async function readFileStore(): Promise<FileStoreShape> {
-  try {
-    const p = await filePath();
-    const raw = await fs.readFile(p, "utf8");
-    const j = JSON.parse(raw) as FileStoreShape;
-    return {
-      watchlist: Array.isArray(j.watchlist) ? j.watchlist : [],
-      settings: { ...defaultSettings(), ...j.settings },
-    };
-  } catch {
-    return { watchlist: [], settings: defaultSettings() };
-  }
-}
-
-async function writeFileStore(data: FileStoreShape) {
-  const p = await filePath();
-  await fs.writeFile(p, JSON.stringify(data, null, 2), "utf8");
-}
-
 export async function getWatchlist(): Promise<WatchItem[]> {
-  if (hasKvConfig()) {
-    const v = await kvGet<WatchItem[]>(WATCHLIST_KEY);
-    return Array.isArray(v) ? v : [];
-  }
-  const f = await readFileStore();
-  return f.watchlist;
+  if (!hasRedisConfig()) return [];
+  const v = await kvGet<WatchItem[]>(WATCHLIST_KEY);
+  return Array.isArray(v) ? v : [];
 }
 
 export async function setWatchlist(items: WatchItem[]) {
-  if (isVercel() && !hasKvConfig()) throw new KvRequiredError();
-  if (hasKvConfig()) {
-    await kvSet(WATCHLIST_KEY, items);
-    return;
-  }
-  const f = await readFileStore();
-  f.watchlist = items;
-  await writeFileStore(f);
+  if (!hasRedisConfig()) throw new KvRequiredError();
+  await kvSet(WATCHLIST_KEY, items);
 }
 
 export async function getSettings(): Promise<AppSettings> {
-  if (hasKvConfig()) {
-    const v = await kvGet<AppSettings>(SETTINGS_KEY);
-    return { ...defaultSettings(), ...(v ?? {}) };
-  }
-  const f = await readFileStore();
-  return { ...defaultSettings(), ...f.settings };
+  if (!hasRedisConfig()) return defaultSettings();
+  const v = await kvGet<AppSettings>(SETTINGS_KEY);
+  return { ...defaultSettings(), ...(v ?? {}) };
 }
 
 export async function setSettings(partial: Partial<AppSettings>) {
-  if (isVercel() && !hasKvConfig()) throw new KvRequiredError();
+  if (!hasRedisConfig()) throw new KvRequiredError();
   const cur = await getSettings();
   const next = { ...cur, ...partial };
-  if (hasKvConfig()) {
-    await kvSet(SETTINGS_KEY, next);
-    return next;
-  }
-  const f = await readFileStore();
-  f.settings = next;
-  await writeFileStore(f);
+  await kvSet(SETTINGS_KEY, next);
   return next;
 }

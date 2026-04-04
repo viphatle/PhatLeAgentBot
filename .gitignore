@@ -4,5 +4,4 @@ SSH_PUBLIC_KEY_FOR_GITHUB.txt
 
 node_modules/
 .next/
-.local-kv/
 .tools/
