@@ -1,5 +1,5 @@
 import { getSettings, getWatchlist } from "./kv";
-import { isTradingSession, vnTimeLabel } from "./market";
+import { isTradingSession, latestTradingDayLabel, vnTimeLabel } from "./market";
 import { comparableBuyPrice } from "./pnl";
 import { fetchQuote } from "./prices";
 import { formatDigest, sendTelegramMessage } from "./telegram";
@@ -49,7 +49,8 @@ export async function sendStockDigest(opts: {
       source: q.source,
     });
   }
-  const text = formatDigest(rows, opts.sessionLabel, vnTimeLabel());
+  const session = `Phiên ${latestTradingDayLabel()} (${opts.sessionLabel})`;
+  const text = formatDigest(rows, session, vnTimeLabel());
   await sendTelegramMessage(token, chatId, text);
   return { ok: true as const };
 }

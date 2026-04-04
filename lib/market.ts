@@ -42,3 +42,14 @@ export function vnTimeLabel(now = new Date()) {
     timeStyle: "short",
   }).format(now);
 }
+
+/** Ngày giao dịch gần nhất (T2-T6) theo múi giờ Việt Nam */
+export function latestTradingDayLabel(now = new Date()) {
+  const { day } = vnParts(now);
+  const backDays = day === 6 ? 1 : day === 0 ? 2 : 0;
+  const ref = new Date(now.getTime() - backDays * 24 * 60 * 60 * 1000);
+  return new Intl.DateTimeFormat("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    dateStyle: "short",
+  }).format(ref);
+}
