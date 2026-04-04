@@ -1,7 +1,8 @@
 .env
+.env*.local
 SSH_PUBLIC_KEY_FOR_GITHUB.txt
 
-stock-tracker/node_modules/
-stock-tracker/.next/
-stock-tracker/.local-kv/
-stock-tracker/.tools/
+node_modules/
+.next/
+.local-kv/
+.tools/
