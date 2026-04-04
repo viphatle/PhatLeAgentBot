@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { AUTH_COOKIE_NAME } from "@/lib/auth";
+import { AUTH_COOKIE_NAME, verifySessionToken } from "@/lib/session";
 
 function isPublicPath(pathname: string) {
   if (pathname === "/login") return true;
@@ -11,13 +11,14 @@ function isPublicPath(pathname: string) {
   return false;
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   if (isPublicPath(pathname)) return NextResponse.next();
 
   const secret = process.env.AUTH_SECRET?.trim() ?? "";
   const cookie = req.cookies.get(AUTH_COOKIE_NAME)?.value;
-  const authed = Boolean(secret && cookie && cookie === secret);
+  const session = await verifySessionToken(cookie, secret);
+  const authed = Boolean(session);
 
   if (authed) {
     if (pathname === "/login") {

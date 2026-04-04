@@ -85,6 +85,16 @@ async function kvSet(key: string, value: unknown) {
   await redis.set(key, JSON.stringify(value));
 }
 
+export async function getJsonValue<T>(key: string): Promise<T | null> {
+  if (!hasRedisConfig()) return null;
+  return kvGet<T>(key);
+}
+
+export async function setJsonValue(key: string, value: unknown) {
+  if (!hasRedisConfig()) throw new KvRequiredError();
+  await kvSet(key, value);
+}
+
 export async function getWatchlist(): Promise<WatchItem[]> {
   if (!hasRedisConfig()) return [];
   const v = await kvGet<WatchItem[]>(WATCHLIST_KEY);
