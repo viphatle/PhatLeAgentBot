@@ -16,7 +16,7 @@ const defaultSettings = (): AppSettings => ({
   mock_prices: false,
 });
 
-function useKv() {
+function hasKvConfig() {
   return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
 }
 
@@ -26,7 +26,7 @@ function isVercel() {
 
 /** Trên Vercel bắt buộc có KV; local có thể dùng file .local-kv */
 export function storageReady() {
-  return useKv() || !isVercel();
+  return hasKvConfig() || !isVercel();
 }
 
 export class KvRequiredError extends Error {
@@ -73,7 +73,7 @@ async function writeFileStore(data: FileStoreShape) {
 }
 
 export async function getWatchlist(): Promise<WatchItem[]> {
-  if (useKv()) {
+  if (hasKvConfig()) {
     const v = await kvGet<WatchItem[]>(WATCHLIST_KEY);
     return Array.isArray(v) ? v : [];
   }
@@ -82,8 +82,8 @@ export async function getWatchlist(): Promise<WatchItem[]> {
 }
 
 export async function setWatchlist(items: WatchItem[]) {
-  if (isVercel() && !useKv()) throw new KvRequiredError();
-  if (useKv()) {
+  if (isVercel() && !hasKvConfig()) throw new KvRequiredError();
+  if (hasKvConfig()) {
     await kvSet(WATCHLIST_KEY, items);
     return;
   }
@@ -93,7 +93,7 @@ export async function setWatchlist(items: WatchItem[]) {
 }
 
 export async function getSettings(): Promise<AppSettings> {
-  if (useKv()) {
+  if (hasKvConfig()) {
     const v = await kvGet<AppSettings>(SETTINGS_KEY);
     return { ...defaultSettings(), ...(v ?? {}) };
   }
@@ -102,10 +102,10 @@ export async function getSettings(): Promise<AppSettings> {
 }
 
 export async function setSettings(partial: Partial<AppSettings>) {
-  if (isVercel() && !useKv()) throw new KvRequiredError();
+  if (isVercel() && !hasKvConfig()) throw new KvRequiredError();
   const cur = await getSettings();
   const next = { ...cur, ...partial };
-  if (useKv()) {
+  if (hasKvConfig()) {
     await kvSet(SETTINGS_KEY, next);
     return next;
   }
