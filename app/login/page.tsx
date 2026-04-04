@@ -46,11 +46,6 @@ export default function LoginPage() {
               setMsg(j?.error ?? "Đăng nhập thất bại.");
               return;
             }
-            if (mode === "register") {
-              setMsg("Tạo tài khoản thành công. Bạn có thể đăng nhập ngay.");
-              setMode("login");
-              return;
-            }
             window.location.href = next;
           }}
         >

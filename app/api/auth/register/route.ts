@@ -41,7 +41,7 @@ export async function POST(req: Request) {
 
   const users = await getUsers();
   const firstAccount = users.length === 0;
-  const allowOpenBootstrap = firstAccount && requestedRole === "super_admin";
+  const allowOpenBootstrap = firstAccount;
   const allowBySession = currentSession?.role === "super_admin";
 
   if (!allowOpenBootstrap && !allowBySession) {
