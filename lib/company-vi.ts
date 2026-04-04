@@ -1,0 +1,36 @@
+const COMPANY_NAME_VI: Record<string, string> = {
+  ACB: "Ngân hàng TMCP Á Châu",
+  BID: "Ngân hàng TMCP Đầu tư và Phát triển Việt Nam",
+  BVH: "Tập đoàn Bảo Việt",
+  CTG: "Ngân hàng TMCP Công Thương Việt Nam",
+  FPT: "Công ty Cổ phần FPT",
+  GAS: "Tổng Công ty Khí Việt Nam - CTCP",
+  GVR: "Tập đoàn Công nghiệp Cao su Việt Nam",
+  HDB: "Ngân hàng TMCP Phát triển TP.HCM",
+  HPG: "Công ty Cổ phần Tập đoàn Hòa Phát",
+  MBB: "Ngân hàng TMCP Quân đội",
+  MSN: "Công ty Cổ phần Tập đoàn Masan",
+  MWG: "Công ty Cổ phần Đầu tư Thế Giới Di Động",
+  NVL: "Công ty Cổ phần Tập đoàn Đầu tư Địa ốc No Va",
+  PDR: "Công ty Cổ phần Phát triển Bất động sản Phát Đạt",
+  PLX: "Tập đoàn Xăng dầu Việt Nam",
+  PNJ: "Công ty Cổ phần Vàng bạc Đá quý Phú Nhuận",
+  POW: "Tổng Công ty Điện lực Dầu khí Việt Nam - CTCP",
+  SAB: "Tổng Công ty Cổ phần Bia - Rượu - Nước giải khát Sài Gòn",
+  SHB: "Ngân hàng TMCP Sài Gòn - Hà Nội",
+  SSI: "Công ty Cổ phần Chứng khoán SSI",
+  STB: "Ngân hàng TMCP Sài Gòn Thương Tín",
+  TCB: "Ngân hàng TMCP Kỹ thương Việt Nam",
+  TPB: "Ngân hàng TMCP Tiên Phong",
+  VCB: "Ngân hàng TMCP Ngoại thương Việt Nam",
+  VHM: "Công ty Cổ phần Vinhomes",
+  VIC: "Tập đoàn Vingroup - Công ty CP",
+  VJC: "Công ty Cổ phần Hàng không Vietjet",
+  VNM: "Công ty Cổ phần Sữa Việt Nam",
+  VPB: "Ngân hàng TMCP Việt Nam Thịnh Vượng",
+  VRE: "Công ty Cổ phần Vincom Retail",
+};
+
+export function lookupCompanyNameVi(symbol: string): string | undefined {
+  return COMPANY_NAME_VI[symbol.toUpperCase().trim()];
+}

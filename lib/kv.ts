@@ -3,6 +3,7 @@ import type { AppSettings, WatchItem } from "./types";
 
 const WATCHLIST_KEY = "st:watchlist";
 const SETTINGS_KEY = "st:settings";
+const PNL_ALERT_PREFIX = "st:pnl-alert:";
 
 const defaultSettings = (): AppSettings => ({
   telegram_bot_token: "",
@@ -106,4 +107,19 @@ export async function setSettings(partial: Partial<AppSettings>) {
   const next = { ...cur, ...partial };
   await kvSet(SETTINGS_KEY, next);
   return next;
+}
+
+export type PnlAlertState = {
+  day: string;
+  direction: "up" | "down" | null;
+};
+
+export async function getPnlAlertState(symbol: string): Promise<PnlAlertState | null> {
+  if (!hasRedisConfig()) return null;
+  return kvGet<PnlAlertState>(`${PNL_ALERT_PREFIX}${symbol.toUpperCase().trim()}`);
+}
+
+export async function setPnlAlertState(symbol: string, value: PnlAlertState) {
+  if (!hasRedisConfig()) return;
+  await kvSet(`${PNL_ALERT_PREFIX}${symbol.toUpperCase().trim()}`, value);
 }

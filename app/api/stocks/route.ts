@@ -1,4 +1,5 @@
 import { getWatchlist, KvRequiredError, setWatchlist } from "@/lib/kv";
+import { lookupCompanyNameVi } from "@/lib/company-vi";
 import type { WatchItem } from "@/lib/types";
 import { resolveYahooInstrument } from "@/lib/yahoo";
 
@@ -46,6 +47,7 @@ export async function POST(req: Request) {
       symbol,
       buy_price: buyPrice,
       display_name: info.display_name,
+      display_name_vi: lookupCompanyNameVi(symbol),
       short_name: info.short_name,
       exchange: info.exchange,
       full_exchange: info.full_exchange,

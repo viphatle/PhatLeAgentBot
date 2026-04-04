@@ -1,3 +1,4 @@
+import { maybeSendPnlSpikeAlert } from "@/lib/alerts";
 import { getSettings } from "@/lib/kv";
 import { fetchQuote } from "@/lib/prices";
 
@@ -11,6 +12,7 @@ export async function GET(
   try {
     const settings = await getSettings();
     const q = await fetchQuote(ticker, { mock: settings.mock_prices });
+    void maybeSendPnlSpikeAlert(ticker, q).catch(() => {});
     return Response.json(q);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Lỗi";

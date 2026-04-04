@@ -92,7 +92,7 @@ export function Dashboard() {
     <main className="mx-auto max-w-3xl px-4 py-10">
       <header className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-          DANH SÁCH THEO DÕI CHỨNG KHOÁN
+          DANH SÁCH CHỨNG KHOÁN
         </h1>
         <p className="mt-2 max-w-xl text-sm text-muted">
           Next.js serverless trên Vercel — watchlist/settings lưu trên Redis. Giá thị trường:{" "}

@@ -1,6 +1,8 @@
 "use client";
 
 import type { WatchItem } from "@/lib/types";
+import { lookupCompanyNameVi } from "@/lib/company-vi";
+import { comparableBuyPrice } from "@/lib/pnl";
 
 export type QuoteView = {
   price: number;
@@ -9,16 +11,6 @@ export type QuoteView = {
   volume: number;
   source: string;
 } | null;
-
-function comparableBuyPrice(buyPrice: number, marketPrice: number): number {
-  if (!Number.isFinite(buyPrice) || !Number.isFinite(marketPrice) || buyPrice <= 0 || marketPrice <= 0) {
-    return buyPrice;
-  }
-  const ratio = marketPrice / buyPrice;
-  if (ratio >= 100 && ratio <= 10_000) return buyPrice * 1000;
-  if (ratio <= 0.01 && ratio >= 0.0001) return buyPrice / 1000;
-  return buyPrice;
-}
 
 export function StockCard({
   item,
@@ -49,11 +41,13 @@ export function StockCard({
   const sub = [item.short_name, item.full_exchange || item.exchange, item.yahoo_symbol]
     .filter(Boolean)
     .join(" · ");
+  const viName = item.display_name_vi || lookupCompanyNameVi(item.symbol);
 
   return (
     <tr className="border-b border-line/80">
       <td className="max-w-[280px] py-3 pr-3">
         <div className="font-medium leading-snug text-slate-100">{item.display_name}</div>
+        {viName ? <div className="mt-0.5 text-xs leading-snug text-slate-300">{viName}</div> : null}
         {sub ? (
           <div className="mt-0.5 text-xs leading-snug text-muted" title={sub}>
             {sub}

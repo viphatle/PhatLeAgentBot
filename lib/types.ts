@@ -5,6 +5,8 @@ export type WatchItem = {
   buy_price?: number;
   /** Tên công ty (tự lấy từ Yahoo longName / shortName) */
   display_name: string;
+  /** Tên tiếng Việt (nếu có trong mapping) */
+  display_name_vi?: string;
   short_name?: string;
   exchange?: string;
   full_exchange?: string;

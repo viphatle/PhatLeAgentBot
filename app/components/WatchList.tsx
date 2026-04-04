@@ -26,7 +26,7 @@ export function WatchList({
 }) {
   return (
     <section className="rounded-xl border border-line bg-card/90 p-5 shadow-lg backdrop-blur">
-      <h2 className="text-lg font-semibold text-white">Danh sách theo dõi</h2>
+      <h2 className="text-lg font-semibold text-white">MÃ CK:</h2>
       <form
         className="mt-4 flex flex-wrap gap-2"
         onSubmit={async (e) => {
