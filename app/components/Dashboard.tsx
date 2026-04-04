@@ -10,7 +10,7 @@ export function Dashboard() {
   const [items, setItems] = useState<WatchItem[]>([]);
   const [quotes, setQuotes] = useState<Record<string, QuoteView>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
-  const [sessionLabel, setSessionLabel] = useState("…");
+  const [sessionLabel, setSessionLabel] = useState("");
   const [storageOk, setStorageOk] = useState(true);
 
   const refreshList = useCallback(async () => {
@@ -22,12 +22,8 @@ export function Dashboard() {
   const refreshHealth = useCallback(async () => {
     const r = await fetch("/api/health");
     if (!r.ok) return;
-    const j = (await r.json()) as { in_session?: boolean; storage_ready?: boolean };
-    setSessionLabel(
-      j.in_session
-        ? "Đang trong phiên (GMT+7)"
-        : "Ngoài phiên HOSE/HNX (T2–T6, 9h–11h30 & 13h–14h45)"
-    );
+    const j = (await r.json()) as { storage_ready?: boolean };
+    setSessionLabel("");
     setStorageOk(j.storage_ready !== false);
   }, []);
 
@@ -93,7 +89,7 @@ export function Dashboard() {
       <header className="mb-8 rounded-2xl p-5 glass-card md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-black tracking-tight text-white md:text-4xl">
-            DANH SÁCH CHỨNG KHOÁN
+            LỊCH BIỂU THEO DÕI:
           </h1>
           <a
             href="/schedule"
@@ -103,14 +99,14 @@ export function Dashboard() {
           </a>
         </div>
         <p className="mt-3 max-w-2xl text-sm text-slate-300">
-          Next.js serverless trên Vercel — watchlist/settings lưu trên Redis. Giá thị trường:{" "}
-          <strong className="text-slate-300">Yahoo Finance</strong> (mã dạng VCB → VCB.VN), sau đó TCBS,
-          VNDIRECT nếu cần. Dữ liệu Yahoo có thể trễ vài phút so với sàn; không phải bảng giá niêm yết chính thức.
+          Lịch nhắc hẹn, ghi chú các sự kiện đang diễn ra
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <span className="inline-flex rounded-full soft-pill px-3 py-1 text-xs text-slate-200">
-            {sessionLabel}
-          </span>
+          {sessionLabel ? (
+            <span className="inline-flex rounded-full soft-pill px-3 py-1 text-xs text-slate-200">
+              {sessionLabel}
+            </span>
+          ) : null}
           {!storageOk && (
             <span className="inline-flex rounded-full border border-down/50 bg-down/10 px-3 py-1 text-xs font-semibold text-down">
               Vercel: chưa gắn Redis — không lưu được watchlist/settings. Thêm REDIS_URL và redeploy.

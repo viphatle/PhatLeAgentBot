@@ -3,6 +3,7 @@ import { fetchQuoteFromTcbs } from "./tcbs";
 import { fetchQuoteFromYahoo } from "./yahoo";
 
 const VNDIRECT = "https://finfo-api.vndirect.com.vn/v4/stock-prices";
+const VNDIRECT_HISTORY = "https://api-finfo.vndirect.com.vn/v4/stock_prices";
 
 function hashSeed(s: string) {
   let h = 0;
@@ -99,6 +100,56 @@ async function fetchQuoteFromVndirect(symbol: string): Promise<Quote | null> {
   }
 }
 
+function parseVndirectHistory(sym: string, payload: unknown): Quote | null {
+  const root = payload as {
+    data?: Array<Record<string, unknown>>;
+  };
+  const row = root.data?.[0];
+  if (!row || typeof row !== "object") return null;
+
+  const code = String(row.code ?? "").toUpperCase();
+  if (code && code !== sym) return null;
+
+  const price = numFromRow(row, ["close", "adClose", "average"]);
+  const reference = numFromRow(row, ["basicPrice", "adOpen", "open", "close"]);
+  const volume = numFromRow(row, ["nmVolume", "volume"]);
+
+  if (!Number.isFinite(price) || price <= 0) return null;
+  const ref = Number.isFinite(reference) && reference > 0 ? reference : price;
+  const change = price - ref;
+  const changePctRaw = numFromRow(row, ["pctChange"]);
+  const change_pct = Number.isFinite(changePctRaw) ? changePctRaw : ref ? (change / ref) * 100 : 0;
+
+  return {
+    symbol: sym,
+    price,
+    reference: ref,
+    change,
+    change_pct,
+    volume: Number.isFinite(volume) ? Math.round(volume) : 0,
+    source: "vndirect",
+  };
+}
+
+async function fetchQuoteFromVndirectHistory(symbol: string): Promise<Quote | null> {
+  const sym = symbol.toUpperCase().trim();
+  try {
+    const r = await fetch(
+      `${VNDIRECT_HISTORY}?sort=date&size=1&q=${encodeURIComponent(`code:${sym}`)}`,
+      {
+        headers: { Accept: "application/json" },
+        next: { revalidate: 0 },
+        signal: AbortSignal.timeout(12_000),
+      },
+    );
+    if (!r.ok) return null;
+    const data = await r.json();
+    return parseVndirectHistory(sym, data);
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchQuote(symbol: string, opts: { mock: boolean }): Promise<Quote | null> {
   const sym = symbol.toUpperCase().trim();
   if (!sym || sym.length > 20) throw new Error("Mã không hợp lệ");
@@ -112,6 +163,9 @@ export async function fetchQuote(symbol: string, opts: { mock: boolean }): Promi
 
   const vn = await fetchQuoteFromVndirect(sym);
   if (vn) return vn;
+
+  const vnHistory = await fetchQuoteFromVndirectHistory(sym);
+  if (vnHistory) return vnHistory;
 
   return null;
 }
