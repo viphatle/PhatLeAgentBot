@@ -143,7 +143,7 @@ async function fetchQuoteFromVndirectHistory(symbol: string): Promise<Quote | nu
   const sym = symbol.toUpperCase().trim();
   try {
     const r = await fetch(
-      `${VNDIRECT_HISTORY}?sort=date&size=1&q=${encodeURIComponent(`code:${sym}`)}`,
+      `${VNDIRECT_HISTORY}?sort=date:desc&size=1&q=${encodeURIComponent(`code:${sym}`)}`,
       {
         headers: { Accept: "application/json" },
         next: { revalidate: 0 },

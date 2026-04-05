@@ -293,7 +293,7 @@ async function fetchVndirectHistory(symbol: string, period: HistoryPeriod): Prom
   const cfg = toPeriodConfig(period);
   try {
     const r = await fetch(
-      `${VNDIRECT_HISTORY}?sort=date:asc&size=400&q=${encodeURIComponent(`code:${sym}`)}`,
+      `${VNDIRECT_HISTORY}?sort=date:desc&size=500&q=${encodeURIComponent(`code:${sym}`)}`,
       {
         headers: { Accept: "application/json" },
         next: { revalidate: 0 },
@@ -314,7 +314,8 @@ async function fetchVndirectHistory(symbol: string, period: HistoryPeriod): Prom
       })
       .filter((p) => p.date && Number.isFinite(p.close) && p.close > 0);
     if (!points.length) return null;
-    return trimRecentPeriod(points, period);
+    const sorted = points.sort((a, b) => a.date.localeCompare(b.date));
+    return trimRecentPeriod(sorted, period);
   } catch {
     return null;
   }
