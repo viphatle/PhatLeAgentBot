@@ -123,6 +123,7 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
               const inMonth = d.getMonth() === month.getMonth();
               const active = key === selectedDate;
               const count = noteCountByDate[key] ?? 0;
+              const hasNotes = count > 0;
               return (
                 <button
                   key={key}
@@ -131,11 +132,16 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
                   className={`rounded-md border px-2 py-2 text-sm ${
                     active
                       ? "border-accent bg-accent/25 text-white"
-                      : "border-line bg-surface/40 text-slate-200"
+                      : hasNotes
+                        ? "border-accent/60 bg-accent/10 text-slate-100 shadow-[0_0_0_1px_rgba(56,168,255,0.22)]"
+                        : "border-line bg-surface/40 text-slate-200"
                   } ${inMonth ? "" : "opacity-45"}`}
                 >
                   <div>{d.getDate()}</div>
-                  <div className="mt-1 text-[10px]">{count > 0 ? `${count} ghi chú` : ""}</div>
+                  <div className="mt-1 flex items-center justify-center gap-1 text-[10px]">
+                    {hasNotes ? <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" /> : null}
+                    <span>{hasNotes ? `${count} ghi chú` : ""}</span>
+                  </div>
                 </button>
               );
             })}
