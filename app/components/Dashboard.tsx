@@ -15,17 +15,25 @@ export function Dashboard() {
   const [storageOk, setStorageOk] = useState(true);
 
   const refreshList = useCallback(async () => {
-    const r = await fetch("/api/stocks");
-    if (!r.ok) return;
-    setItems(await r.json());
+    try {
+      const r = await fetch("/api/stocks");
+      if (!r.ok) return;
+      setItems(await r.json());
+    } catch {
+      // Network error (e.g. server restarting) -> keep current UI state.
+    }
   }, []);
 
   const refreshHealth = useCallback(async () => {
-    const r = await fetch("/api/health");
-    if (!r.ok) return;
-    const j = (await r.json()) as { storage_ready?: boolean };
-    setSessionLabel("");
-    setStorageOk(j.storage_ready !== false);
+    try {
+      const r = await fetch("/api/health");
+      if (!r.ok) return;
+      const j = (await r.json()) as { storage_ready?: boolean };
+      setSessionLabel("");
+      setStorageOk(j.storage_ready !== false);
+    } catch {
+      // When health endpoint is temporarily unreachable, avoid crashing UI.
+    }
   }, []);
 
   const loadQuotes = useCallback(async (list: WatchItem[]) => {
