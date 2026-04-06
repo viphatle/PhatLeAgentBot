@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { formatCompactVn, formatNumberVn, formatPercent, formatStockDelta, formatStockPrice } from "@/lib/format";
 
-type Period = "week" | "month" | "quarter" | "year";
+type Period = "week" | "month" | "quarter" | "half" | "year";
 
 type HistoryPoint = {
   date: string;
@@ -28,7 +28,9 @@ type HistoryResponse = {
     volatility_pct: number;
   };
   indicators: {
-    sma20: number | null;
+    ma_period: number;
+    ma_value: number | null;
+    ma_series: Array<number | null>;
     ema12: number | null;
     ema26: number | null;
     rsi14: number | null;
@@ -50,6 +52,7 @@ const PERIODS: Array<{ id: Period; label: string }> = [
   { id: "week", label: "Tuần" },
   { id: "month", label: "Tháng" },
   { id: "quarter", label: "Quý" },
+  { id: "half", label: "6 Tháng" },
   { id: "year", label: "Năm" },
 ];
 
@@ -71,23 +74,34 @@ function toneClass(tone: Tone) {
   return "text-slate-300";
 }
 
-function PriceChart({ points }: { points: HistoryPoint[] }) {
+function PriceChart({
+  points,
+  maSeries,
+  maLabel,
+}: {
+  points: HistoryPoint[];
+  maSeries: Array<number | null>;
+  maLabel: string;
+}) {
   const width = 920;
   const height = 340;
-  const left = 64;
-  const right = 18;
+  const left = 70;
+  const right = 38;
   const top = 20;
   const bottom = 44;
   const values = points.map((p) => p.close);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const maValues = maSeries.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+  const allValues = maValues.length ? [...values, ...maValues] : values;
+  const min = Math.min(...allValues);
+  const max = Math.max(...allValues);
   const range = Math.max(1, max - min);
   const chartW = width - left - right;
   const chartH = height - top - bottom;
   const dx = chartW / Math.max(1, points.length - 1);
-  const yTicks = axisTicks(min, max, 5);
-  const xTickIndexes = [0, Math.floor((points.length - 1) / 2), points.length - 1]
-    .filter((v, i, arr) => arr.indexOf(v) === i);
+  const yTicks = axisTicks(min, max, 6);
+  const xTickIndexes = Array.from({ length: 5 }, (_, i) =>
+    Math.round((i * (points.length - 1)) / 4),
+  ).filter((v, i, arr) => arr.indexOf(v) === i);
 
   const path = points
     .map((p, i) => {
@@ -95,6 +109,17 @@ function PriceChart({ points }: { points: HistoryPoint[] }) {
       const y = top + ((max - p.close) / range) * chartH;
       return `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
     })
+    .join(" ");
+
+  const maPath = points
+    .map((p, i) => {
+      const ma = maSeries[i];
+      if (ma === null || !Number.isFinite(ma)) return "";
+      const x = left + i * dx;
+      const y = top + ((max - ma) / range) * chartH;
+      return `${i === 0 || maSeries[i - 1] === null ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .filter(Boolean)
     .join(" ");
 
   const first = values[0];
@@ -105,9 +130,12 @@ function PriceChart({ points }: { points: HistoryPoint[] }) {
     <div className="rounded-xl border border-line/70 bg-surface/40 p-3">
       <div className="mb-2 flex items-center justify-between text-xs text-slate-300">
         <span>Đồ thị giá đóng cửa</span>
-        <span className={up ? "text-up" : "text-down"}>
-          {formatStockPrice(last)} ({formatPercent(first > 0 ? ((last - first) / first) * 100 : 0)})
-        </span>
+        <div className="flex items-center gap-3">
+          <span className={up ? "text-up" : "text-down"}>
+            {formatStockPrice(last)} ({formatPercent(first > 0 ? ((last - first) / first) * 100 : 0)})
+          </span>
+          <span className="text-brand">• {maLabel}</span>
+        </div>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} className="h-64 w-full">
         <defs>
@@ -129,15 +157,18 @@ function PriceChart({ points }: { points: HistoryPoint[] }) {
         })}
         {xTickIndexes.map((idx) => {
           const x = left + idx * dx;
+          const anchor = idx === 0 ? "start" : idx === points.length - 1 ? "end" : "middle";
+          const textX = idx === 0 ? x + 2 : idx === points.length - 1 ? x - 2 : x;
           return (
             <g key={`xt-${idx}`}>
               <line x1={x} y1={top} x2={x} y2={height - bottom} stroke="rgba(148,167,196,0.1)" strokeWidth="1" />
-              <text x={x} y={height - 14} textAnchor="middle" fontSize="11" fill="rgba(180,198,220,0.85)">
+              <text x={textX} y={height - 14} textAnchor={anchor} fontSize="11" fill="rgba(180,198,220,0.85)">
                 {dateShort(points[idx].date)}
               </text>
             </g>
           );
         })}
+        {maPath ? <path d={maPath} fill="none" stroke="rgba(56,168,255,0.95)" strokeWidth="2" strokeLinecap="round" /> : null}
         <path d={path} fill="none" stroke="url(#lineGlow)" strokeWidth="3" strokeLinecap="round" />
       </svg>
     </div>
@@ -217,9 +248,13 @@ function indicatorInsights(data: HistoryResponse) {
   if (ema12 !== null && ema26 !== null) {
     out.push(ema12 >= ema26 ? "EMA12 nằm trên EMA26: xu hướng ngắn hạn đang mạnh hơn." : "EMA12 dưới EMA26: xu hướng ngắn hạn đang yếu.");
   }
-  const sma20 = data.indicators.sma20;
-  if (sma20 !== null) {
-    out.push(price >= sma20 ? "Giá hiện trên SMA20: thiên hướng tích cực trong kỳ." : "Giá hiện dưới SMA20: thiên hướng thận trọng trong kỳ.");
+  const ma = data.indicators.ma_value;
+  if (ma !== null) {
+    out.push(
+      price >= ma
+        ? `Giá hiện trên MA${data.indicators.ma_period}: thiên hướng tích cực trong kỳ.`
+        : `Giá hiện dưới MA${data.indicators.ma_period}: thiên hướng thận trọng trong kỳ.`,
+    );
   }
   const macd = data.indicators.macd;
   const signal = data.indicators.signal9;
@@ -234,13 +269,15 @@ function indicatorRows(data: HistoryResponse): Array<{ key: string; value: strin
   const price = closes[closes.length - 1];
   const rows: Array<{ key: string; value: string; note: string; tone: Tone }> = [];
 
-  const sma20 = data.indicators.sma20;
-  if (sma20 !== null) {
-    const above = price >= sma20;
+  const ma = data.indicators.ma_value;
+  if (ma !== null) {
+    const above = price >= ma;
     rows.push({
-      key: "SMA20",
-      value: formatStockPrice(sma20),
-      note: above ? "Giá đang nằm trên SMA20 (tín hiệu tích cực)." : "Giá dưới SMA20 (cần thận trọng xu hướng).",
+      key: `MA${data.indicators.ma_period}`,
+      value: formatStockPrice(ma),
+      note: above
+        ? `Giá đang nằm trên MA${data.indicators.ma_period} (tín hiệu tích cực).`
+        : `Giá dưới MA${data.indicators.ma_period} (cần thận trọng xu hướng).`,
       tone: above ? "good" : "warn",
     });
   }
@@ -301,7 +338,7 @@ function forecastAnalysis(
     const positive = slopes.filter((x) => x > 0).length;
     const negative = slopes.filter((x) => x < 0).length;
     if (positive === slopes.length) {
-      out.push({ text: "Đa kỳ đều nghiêng tăng (tuần-tháng-quý-năm cùng chiều).", tone: "good" });
+      out.push({ text: "Đa kỳ đều nghiêng tăng (tuần-tháng-quý-6 tháng-năm cùng chiều).", tone: "good" });
     } else if (negative === slopes.length) {
       out.push({ text: "Đa kỳ cùng chiều giảm, rủi ro tiếp diễn xu hướng giảm.", tone: "warn" });
     } else {
@@ -345,17 +382,24 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
     const load = async () => {
       setLoading(true);
       setErr(null);
-      const r = await fetch(`/api/stocks/${encodeURIComponent(ticker)}/history?period=${period}&ts=${Date.now()}`, {
-        cache: "no-store",
-      });
-      const j = (await r.json().catch(() => ({}))) as HistoryResponse & { error?: string };
-      if (stop) return;
-      if (!r.ok) {
-        setErr(j.error ?? "Không lấy được dữ liệu.");
-        setData(null);
-      } else {
-        setData(j);
-        setLastUpdate(new Date().toLocaleTimeString("vi-VN"));
+      try {
+        const r = await fetch(`/api/stocks/${encodeURIComponent(ticker)}/history?period=${period}&ts=${Date.now()}`, {
+          cache: "no-store",
+        });
+        const j = (await r.json().catch(() => ({}))) as HistoryResponse & { error?: string };
+        if (stop) return;
+        if (!r.ok) {
+          setErr(j.error ?? "Không lấy được dữ liệu.");
+          setData(null);
+        } else {
+          setData(j);
+          setLastUpdate(new Date().toLocaleTimeString("vi-VN"));
+        }
+      } catch {
+        if (!stop) {
+          setErr("Không kết nối được dữ liệu lịch sử. Vui lòng thử lại.");
+          setData(null);
+        }
       }
       setLoading(false);
     };
@@ -407,7 +451,7 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
           <div>
             <h1 className="text-2xl font-black tracking-tight text-white md:text-4xl">MÃ CK: {ticker}</h1>
             <p className="mt-2 text-sm text-slate-300">
-              Thống kê giá, khối lượng, chỉ báo và dự báo theo tuần/tháng/quý/năm.
+              Thống kê giá, khối lượng, chỉ báo và dự báo theo tuần/tháng/quý/6 tháng/năm.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -465,7 +509,11 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
             </div>
           </section>
 
-          <PriceChart points={data.points} />
+          <PriceChart
+            points={data.points}
+            maSeries={data.indicators.ma_series}
+            maLabel={`MA${data.indicators.ma_period}: ${formatStockPrice(data.indicators.ma_value)}`}
+          />
           <VolumeBars points={data.points} />
 
           <section className="grid gap-4 md:grid-cols-2">

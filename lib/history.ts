@@ -4,7 +4,7 @@ const YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart";
 const YAHOO_SUFFIXES = [".VN", ".HNO"] as const;
 const VNDIRECT_HISTORY = "https://api-finfo.vndirect.com.vn/v4/stock_prices";
 
-export type HistoryPeriod = "week" | "month" | "quarter" | "year";
+export type HistoryPeriod = "week" | "month" | "quarter" | "half" | "year";
 
 export type HistoryPoint = {
   date: string; // YYYY-MM-DD
@@ -13,7 +13,9 @@ export type HistoryPoint = {
 };
 
 export type HistoryIndicators = {
-  sma20: number | null;
+  ma_period: number;
+  ma_value: number | null;
+  ma_series: Array<number | null>;
   ema12: number | null;
   ema26: number | null;
   rsi14: number | null;
@@ -70,9 +72,27 @@ function toPeriodConfig(period: HistoryPeriod): {
       return { range: "3mo", interval: "1d", horizonSessions: 22 };
     case "quarter":
       return { range: "6mo", interval: "1d", horizonSessions: 66 };
+    case "half":
+      return { range: "1y", interval: "1d", horizonSessions: 126 };
     case "year":
     default:
-      return { range: "1y", interval: "1d", horizonSessions: 252 };
+      return { range: "2y", interval: "1d", horizonSessions: 252 };
+  }
+}
+
+function maPeriodForPeriod(period: HistoryPeriod) {
+  switch (period) {
+    case "week":
+      return 10;
+    case "month":
+      return 20;
+    case "quarter":
+      return 50;
+    case "half":
+      return 100;
+    case "year":
+    default:
+      return 200;
   }
 }
 
@@ -96,6 +116,7 @@ function trimRecentPeriod(points: HistoryPoint[], period: HistoryPeriod) {
   if (period === "week") start.setUTCDate(start.getUTCDate() - 6);
   if (period === "month") start.setUTCMonth(start.getUTCMonth() - 1);
   if (period === "quarter") start.setUTCMonth(start.getUTCMonth() - 3);
+  if (period === "half") start.setUTCMonth(start.getUTCMonth() - 6);
   if (period === "year") start.setUTCFullYear(start.getUTCFullYear() - 1);
   const startYmd = toYmdUtc(start);
   const latestYmd = ordered[ordered.length - 1].date;
@@ -116,10 +137,17 @@ function normalizeToVndUnit(value: number): number {
   return value;
 }
 
-function sma(values: number[], period: number): number | null {
-  if (values.length < period) return null;
-  const segment = values.slice(values.length - period);
-  return segment.reduce((a, b) => a + b, 0) / period;
+function smaSeries(values: number[], period: number): Array<number | null> {
+  const out: Array<number | null> = [];
+  for (let i = 0; i < values.length; i += 1) {
+    if (i + 1 < period) {
+      out.push(null);
+      continue;
+    }
+    const seg = values.slice(i + 1 - period, i + 1);
+    out.push(seg.reduce((a, b) => a + b, 0) / period);
+  }
+  return out;
 }
 
 function emaSeries(values: number[], period: number): number[] {
@@ -181,9 +209,21 @@ function computeStats(points: HistoryPoint[]): HistoryStats {
   };
 }
 
-function computeIndicators(points: HistoryPoint[]): HistoryIndicators {
-  const closes = points.map((p) => p.close);
-  const sma20 = sma(closes, 20);
+function computeIndicators(
+  allPoints: HistoryPoint[],
+  visiblePoints: HistoryPoint[],
+  period: HistoryPeriod,
+): HistoryIndicators {
+  const closes = visiblePoints.map((p) => p.close);
+  const allCloses = allPoints.map((p) => p.close);
+  const maPeriod = maPeriodForPeriod(period);
+  const allMaSeries = smaSeries(allCloses, maPeriod);
+  const maByDate = new Map<string, number | null>();
+  for (let i = 0; i < allPoints.length; i += 1) {
+    maByDate.set(allPoints[i].date, allMaSeries[i] ?? null);
+  }
+  const maSeries = visiblePoints.map((p) => maByDate.get(p.date) ?? null);
+  const maValue = maSeries.length ? maSeries[maSeries.length - 1] : null;
   const ema12Series = emaSeries(closes, 12);
   const ema26Series = emaSeries(closes, 26);
   const ema12 = ema12Series.length ? ema12Series[ema12Series.length - 1] : null;
@@ -195,7 +235,16 @@ function computeIndicators(points: HistoryPoint[]): HistoryIndicators {
   const signalSeries = emaSeries(macdSeries, 9);
   const signal9 = signalSeries.length ? signalSeries[signalSeries.length - 1] : null;
   const rsi14 = rsi(closes, 14);
-  return { sma20, ema12, ema26, rsi14, macd, signal9 };
+  return {
+    ma_period: maPeriod,
+    ma_value: maValue,
+    ma_series: maSeries,
+    ema12,
+    ema26,
+    rsi14,
+    macd,
+    signal9,
+  };
 }
 
 function computeForecast(points: HistoryPoint[], horizonSessions: number): Forecast {
@@ -280,7 +329,7 @@ async function fetchYahooHistory(symbol: string, period: HistoryPeriod): Promise
         });
       }
       if (!points.length) continue;
-      return trimRecentPeriod(points, period);
+      return points;
     } catch {
       continue;
     }
@@ -315,7 +364,7 @@ async function fetchVndirectHistory(symbol: string, period: HistoryPeriod): Prom
       .filter((p) => p.date && Number.isFinite(p.close) && p.close > 0);
     if (!points.length) return null;
     const sorted = points.sort((a, b) => a.date.localeCompare(b.date));
-    return trimRecentPeriod(sorted, period);
+    return sorted;
   } catch {
     return null;
   }
@@ -326,11 +375,13 @@ export async function fetchHistoryWithStats(symbol: string, period: HistoryPerio
   if (!sym) return null;
   const cfg = toPeriodConfig(period);
   const yahooPoints = await fetchYahooHistory(sym, period);
-  const points = yahooPoints ?? (await fetchVndirectHistory(sym, period));
-  if (!points || points.length < 2) return null;
+  const allPoints = yahooPoints ?? (await fetchVndirectHistory(sym, period));
+  if (!allPoints || allPoints.length < 2) return null;
+  const points = trimRecentPeriod(allPoints, period);
+  if (points.length < 2) return null;
 
   const stats = computeStats(points);
-  const indicators = computeIndicators(points);
+  const indicators = computeIndicators(allPoints, points, period);
   const forecast = computeForecast(points, cfg.horizonSessions);
 
   return {

@@ -3,7 +3,7 @@ import { fetchHistoryWithStats, type HistoryPeriod } from "@/lib/history";
 export const dynamic = "force-dynamic";
 
 function parsePeriod(v: string | null): HistoryPeriod {
-  if (v === "week" || v === "month" || v === "quarter" || v === "year") return v;
+  if (v === "week" || v === "month" || v === "quarter" || v === "half" || v === "year") return v;
   return "month";
 }
 
