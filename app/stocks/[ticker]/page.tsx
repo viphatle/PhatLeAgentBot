@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { formatCompactVn, formatNumberVn, formatPercent } from "@/lib/format";
+import { formatCompactVn, formatNumberVn, formatPercent, formatStockDelta, formatStockPrice } from "@/lib/format";
 
 type Period = "week" | "month" | "quarter" | "year";
 
@@ -106,7 +106,7 @@ function PriceChart({ points }: { points: HistoryPoint[] }) {
       <div className="mb-2 flex items-center justify-between text-xs text-slate-300">
         <span>Đồ thị giá đóng cửa</span>
         <span className={up ? "text-up" : "text-down"}>
-          {formatCompactVn(last)} ({formatPercent(first > 0 ? ((last - first) / first) * 100 : 0)})
+          {formatStockPrice(last)} ({formatPercent(first > 0 ? ((last - first) / first) * 100 : 0)})
         </span>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} className="h-64 w-full">
@@ -122,7 +122,7 @@ function PriceChart({ points }: { points: HistoryPoint[] }) {
             <g key={`yt-${t}`}>
               <line x1={left} y1={y} x2={width - right} y2={y} stroke="rgba(148,167,196,0.18)" strokeWidth="1" />
               <text x={left - 8} y={y + 4} textAnchor="end" fontSize="11" fill="rgba(180,198,220,0.85)">
-                {formatCompactVn(t)}
+                {formatStockPrice(t)}
               </text>
             </g>
           );
@@ -239,7 +239,7 @@ function indicatorRows(data: HistoryResponse): Array<{ key: string; value: strin
     const above = price >= sma20;
     rows.push({
       key: "SMA20",
-      value: formatCompactVn(sma20),
+      value: formatStockPrice(sma20),
       note: above ? "Giá đang nằm trên SMA20 (tín hiệu tích cực)." : "Giá dưới SMA20 (cần thận trọng xu hướng).",
       tone: above ? "good" : "warn",
     });
@@ -251,7 +251,7 @@ function indicatorRows(data: HistoryResponse): Array<{ key: string; value: strin
     const up = ema12 >= ema26;
     rows.push({
       key: "EMA12/EMA26",
-      value: `${formatCompactVn(ema12)} / ${formatCompactVn(ema26)}`,
+      value: `${formatStockPrice(ema12)} / ${formatStockPrice(ema26)}`,
       note: up ? "EMA12 > EMA26: xu hướng ngắn hạn tích cực." : "EMA12 < EMA26: xu hướng ngắn hạn suy yếu.",
       tone: up ? "good" : "warn",
     });
@@ -271,7 +271,7 @@ function indicatorRows(data: HistoryResponse): Array<{ key: string; value: strin
     const up = macd >= signal;
     rows.push({
       key: "MACD/Signal",
-      value: `${formatCompactVn(macd)} / ${formatCompactVn(signal)}`,
+      value: `${formatStockDelta(macd)} / ${formatStockDelta(signal)}`,
       note: up ? "MACD trên Signal: động lượng tăng tốt." : "MACD dưới Signal: động lượng giảm chiếm ưu thế.",
       tone: up ? "good" : "warn",
     });
@@ -436,7 +436,7 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
             <div className="rounded-xl border border-line/70 bg-surface/35 p-3">
               <div className="text-xs text-muted">Giá đóng cửa gần nhất</div>
               <div className="mt-1 font-mono text-lg text-white" title={formatNumberVn(latest?.close)}>
-                {formatCompactVn(latest?.close)}
+                {formatStockPrice(latest?.close)}
               </div>
             </div>
             <div className="rounded-xl border border-line/70 bg-surface/35 p-3">
@@ -486,17 +486,17 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
                 <div>
                   Phiên kế tiếp:{" "}
                   <span className="font-mono text-white" title={formatNumberVn(data.forecast.next_session)}>
-                    {formatCompactVn(data.forecast.next_session)}
+                    {formatStockPrice(data.forecast.next_session)}
                   </span>
                 </div>
                 <div>
                   Cuối kỳ ({data.forecast.horizon_sessions} phiên):{" "}
                   <span className="font-mono text-white" title={formatNumberVn(data.forecast.horizon_end)}>
-                    {formatCompactVn(data.forecast.horizon_end)}
+                    {formatStockPrice(data.forecast.horizon_end)}
                   </span>
                 </div>
                 <div>
-                  Độ dốc/phiên: <span className="font-mono">{formatCompactVn(data.forecast.slope_per_session)}</span>
+                  Độ dốc/phiên: <span className="font-mono">{formatStockDelta(data.forecast.slope_per_session)}</span>
                 </div>
                 <div>
                   Độ tin cậy:{" "}
@@ -546,12 +546,12 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
                         <td className={`py-2 ${row && row.stats.period_change_pct >= 0 ? "text-up" : "text-down"}`}>
                           {row ? formatPercent(row.stats.period_change_pct) : "—"}
                         </td>
-                        <td className="py-2 font-mono">{row ? formatCompactVn(row.forecast.next_session) : "—"}</td>
+                        <td className="py-2 font-mono">{row ? formatStockPrice(row.forecast.next_session) : "—"}</td>
                         <td className={`py-2 font-mono ${row && row.forecast.horizon_end >= row.points[row.points.length - 1].close ? "text-up" : "text-down"}`}>
-                          {row ? formatCompactVn(row.forecast.horizon_end) : "—"}
+                          {row ? formatStockPrice(row.forecast.horizon_end) : "—"}
                         </td>
                         <td className={`py-2 font-mono ${row && row.forecast.slope_per_session >= 0 ? "text-up" : "text-down"}`}>
-                          {row ? formatCompactVn(row.forecast.slope_per_session) : "—"}
+                          {row ? formatStockDelta(row.forecast.slope_per_session) : "—"}
                         </td>
                         <td
                           className={`py-2 uppercase ${
