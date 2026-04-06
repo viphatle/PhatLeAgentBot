@@ -42,10 +42,14 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
 
   useEffect(() => {
     void (async () => {
-      const r = await fetch(`/api/schedule?month=${monthKey}`);
-      if (!r.ok) return;
-      const j = (await r.json()) as { events?: ScheduleOccurrence[] };
-      setEvents(j.events ?? []);
+      try {
+        const r = await fetch(`/api/schedule?month=${monthKey}`);
+        if (!r.ok) return;
+        const j = (await r.json()) as { events?: ScheduleOccurrence[] };
+        setEvents(j.events ?? []);
+      } catch {
+        // Keep UI stable when API is temporarily unreachable.
+      }
     })();
   }, [monthKey]);
 
@@ -172,30 +176,34 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
               className="brand-btn rounded-lg px-4 py-2 text-sm font-semibold text-white"
               onClick={async () => {
                 setMsg(null);
-                const r = await fetch("/api/schedule", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    date: selectedDate,
-                    time,
-                    note,
-                    recurrence: {
-                      mode: repeatMode,
-                      weekdays: repeatWeekdays,
-                      month_day: repeatMonthDay,
-                    },
-                  }),
-                });
-                const j = await r.json().catch(() => ({}));
-                if (!r.ok) {
-                  setMsg(j?.error ?? "Không lưu được ghi chú");
-                  return;
+                try {
+                  const r = await fetch("/api/schedule", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      date: selectedDate,
+                      time,
+                      note,
+                      recurrence: {
+                        mode: repeatMode,
+                        weekdays: repeatWeekdays,
+                        month_day: repeatMonthDay,
+                      },
+                    }),
+                  });
+                  const j = await r.json().catch(() => ({}));
+                  if (!r.ok) {
+                    setMsg(j?.error ?? "Không lưu được ghi chú");
+                    return;
+                  }
+                  const rr = await fetch(`/api/schedule?month=${monthKey}`);
+                  const jj = (await rr.json().catch(() => ({}))) as { events?: ScheduleOccurrence[] };
+                  setEvents(jj.events ?? []);
+                  setNote("");
+                  setMsg("Đã lưu ghi chú và gửi thông báo Telegram.");
+                } catch {
+                  setMsg("Không kết nối được tới máy chủ.");
                 }
-                const rr = await fetch(`/api/schedule?month=${monthKey}`);
-                const jj = (await rr.json().catch(() => ({}))) as { events?: ScheduleOccurrence[] };
-                setEvents(jj.events ?? []);
-                setNote("");
-                setMsg("Đã lưu ghi chú và gửi thông báo Telegram.");
               }}
             >
               Tạo ghi chú
@@ -289,13 +297,17 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
                     type="button"
                     className="mt-2 rounded subtle-btn px-2 py-1 text-xs text-slate-300 hover:text-down"
                     onClick={async () => {
-                      const r = await fetch("/api/schedule", {
-                        method: "DELETE",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id: e.id }),
-                      });
-                      if (!r.ok) return;
-                      setEvents((prev) => prev.filter((x) => x.id !== e.id));
+                      try {
+                        const r = await fetch("/api/schedule", {
+                          method: "DELETE",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ id: e.id }),
+                        });
+                        if (!r.ok) return;
+                        setEvents((prev) => prev.filter((x) => x.id !== e.id));
+                      } catch {
+                        setMsg("Không kết nối được tới máy chủ.");
+                      }
                     }}
                   >
                     Xoá
