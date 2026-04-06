@@ -19,7 +19,13 @@ export async function GET(
       );
     }
     void maybeSendPnlSpikeAlert(ticker, q).catch(() => {});
-    return Response.json(q);
+    return Response.json(q, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Lỗi";
     return Response.json({ error: msg }, { status: 400 });

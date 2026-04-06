@@ -13,6 +13,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [sessionLabel, setSessionLabel] = useState("");
   const [storageOk, setStorageOk] = useState(true);
+  const [lastQuoteUpdate, setLastQuoteUpdate] = useState<string>("");
 
   const refreshList = useCallback(async () => {
     try {
@@ -44,7 +45,10 @@ export function Dashboard() {
     await Promise.all(
       list.map(async (w) => {
         try {
-          const r = await fetch(`/api/stocks/${encodeURIComponent(w.symbol)}/price`);
+          const r = await fetch(
+            `/api/stocks/${encodeURIComponent(w.symbol)}/price?ts=${Date.now()}`,
+            { cache: "no-store" },
+          );
           if (!r.ok) {
             q[w.symbol] = null;
             return;
@@ -69,6 +73,7 @@ export function Dashboard() {
       })
     );
     setQuotes(q);
+    setLastQuoteUpdate(new Date().toLocaleTimeString("vi-VN"));
     setLoading((prev) => {
       const copy = { ...prev };
       for (const w of list) copy[w.symbol] = false;
@@ -84,7 +89,7 @@ export function Dashboard() {
   useEffect(() => {
     if (!items.length) return;
     void loadQuotes(items);
-    const t = setInterval(() => void loadQuotes(items), 30_000);
+    const t = setInterval(() => void loadQuotes(items), 5_000);
     return () => clearInterval(t);
   }, [items, loadQuotes]);
 
@@ -124,6 +129,11 @@ export function Dashboard() {
               Vercel: chưa gắn Redis — không lưu được watchlist/settings. Thêm REDIS_URL và redeploy.
             </span>
           )}
+          {lastQuoteUpdate ? (
+            <span className="inline-flex rounded-full soft-pill px-3 py-1 text-xs text-slate-300">
+              Cập nhật giá: {lastQuoteUpdate}
+            </span>
+          ) : null}
         </div>
       </header>
 

@@ -338,13 +338,16 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [allPeriods, setAllPeriods] = useState<Partial<Record<Period, HistoryResponse>>>({});
+  const [lastUpdate, setLastUpdate] = useState<string>("");
 
   useEffect(() => {
     let stop = false;
-    void (async () => {
+    const load = async () => {
       setLoading(true);
       setErr(null);
-      const r = await fetch(`/api/stocks/${encodeURIComponent(ticker)}/history?period=${period}`);
+      const r = await fetch(`/api/stocks/${encodeURIComponent(ticker)}/history?period=${period}&ts=${Date.now()}`, {
+        cache: "no-store",
+      });
       const j = (await r.json().catch(() => ({}))) as HistoryResponse & { error?: string };
       if (stop) return;
       if (!r.ok) {
@@ -352,11 +355,15 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
         setData(null);
       } else {
         setData(j);
+        setLastUpdate(new Date().toLocaleTimeString("vi-VN"));
       }
       setLoading(false);
-    })();
+    };
+    void load();
+    const t = setInterval(() => void load(), 10_000);
     return () => {
       stop = true;
+      clearInterval(t);
     };
   }, [ticker, period]);
 
@@ -425,6 +432,7 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
           </button>
         ))}
       </section>
+      {lastUpdate ? <p className="mb-2 text-xs text-slate-400">Cập nhật gần nhất: {lastUpdate}</p> : null}
 
       {loading && <p className="text-sm text-slate-300">Đang tải dữ liệu...</p>}
       {err && <p className="text-sm text-down">{err}</p>}
