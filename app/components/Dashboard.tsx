@@ -38,10 +38,15 @@ export function Dashboard() {
   }, []);
 
   const loadQuotes = useCallback(async (list: WatchItem[]) => {
-    const nextLoad: Record<string, boolean> = {};
-    for (const x of list) nextLoad[x.symbol] = true;
-    setLoading((prev) => ({ ...prev, ...nextLoad }));
-    const q: Record<string, QuoteView> = {};
+    // Keep previous values while polling to avoid UI flicker.
+    setLoading((prev) => {
+      const next = { ...prev };
+      for (const x of list) {
+        if (next[x.symbol] === undefined) next[x.symbol] = true;
+      }
+      return next;
+    });
+    const updates: Record<string, QuoteView> = {};
     await Promise.all(
       list.map(async (w) => {
         try {
@@ -50,7 +55,6 @@ export function Dashboard() {
             { cache: "no-store" },
           );
           if (!r.ok) {
-            q[w.symbol] = null;
             return;
           }
           const data = (await r.json()) as {
@@ -60,7 +64,7 @@ export function Dashboard() {
             volume: number;
             source: string;
           };
-          q[w.symbol] = {
+          updates[w.symbol] = {
             price: data.price,
             change: data.change,
             change_pct: data.change_pct,
@@ -68,11 +72,11 @@ export function Dashboard() {
             source: data.source,
           };
         } catch {
-          q[w.symbol] = null;
+          // Keep previous quote on transient network failure.
         }
       })
     );
-    setQuotes(q);
+    setQuotes((prev) => ({ ...prev, ...updates }));
     setLastQuoteUpdate(new Date().toLocaleTimeString("vi-VN"));
     setLoading((prev) => {
       const copy = { ...prev };
