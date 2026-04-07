@@ -2,7 +2,7 @@
 
 import type { WatchItem } from "@/lib/types";
 import { lookupCompanyNameVi } from "@/lib/company-vi";
-import { formatCompactVn, formatNumberVn, formatPercent } from "@/lib/format";
+import { formatCompactVn, formatNumberVn, formatPercent, formatStockDelta, formatStockPrice } from "@/lib/format";
 import { comparableBuyPrice } from "@/lib/pnl";
 import Link from "next/link";
 
@@ -66,10 +66,11 @@ export function StockCard({
         {!loading && !quote && <span className="text-muted">—</span>}
         {!loading && quote && (
             <span>
-              <span className="font-mono" title={formatNumberVn(quote.price)}>{formatCompactVn(quote.price)}</span>{" "}
+              <span className="font-mono" title={`${formatNumberVn(quote.price)} VND`}>
+                {formatStockPrice(quote.price)}
+              </span>{" "}
               <span className={color}>
-                ({up ? "+" : ""}
-              {formatCompactVn(quote.change)}, {formatPercent(quote.change_pct)})
+              ({formatStockDelta(quote.change)}, {formatPercent(quote.change_pct)})
               </span>
               <span className="ml-2 text-xs text-slate-400" title={formatNumberVn(quote.volume)}>
                 KLGD: {formatCompactVn(quote.volume)}
@@ -87,7 +88,7 @@ export function StockCard({
         {buyPrice && (
           <div>
             <div className="font-mono" title={formatNumberVn(buyPrice)}>
-              {formatCompactVn(buyPrice)}
+              {formatStockPrice(buyPrice)}
             </div>
             {pnlValue === null || pnlPct === null ? (
               <div className="text-xs text-muted">Chưa có giá thị trường</div>
@@ -174,12 +175,11 @@ export function MobileStockCard({
           {!loading && !quote && <span className="text-muted">Không có dữ liệu</span>}
           {!loading && quote && (
             <span className="text-right">
-              <span className="font-mono text-slate-100" title={formatNumberVn(quote.price)}>
-                {formatCompactVn(quote.price)}
+              <span className="font-mono text-slate-100" title={`${formatNumberVn(quote.price)} VND`}>
+                {formatStockPrice(quote.price)}
               </span>{" "}
               <span className={color}>
-                ({up ? "+" : ""}
-                {formatCompactVn(quote.change)}, {formatPercent(quote.change_pct)})
+                ({formatStockDelta(quote.change)}, {formatPercent(quote.change_pct)})
               </span>
             </span>
           )}
@@ -191,7 +191,7 @@ export function MobileStockCard({
           {buyPrice && (
             <div className="text-right">
               <div className="font-mono text-slate-100" title={formatNumberVn(buyPrice)}>
-                {formatCompactVn(buyPrice)}
+                {formatStockPrice(buyPrice)}
               </div>
               {pnlValue === null || pnlPct === null ? (
                 <div className="text-xs text-muted">Chưa có giá thị trường</div>

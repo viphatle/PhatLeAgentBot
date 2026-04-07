@@ -158,21 +158,36 @@ async function fetchQuoteFromVndirectHistory(symbol: string): Promise<Quote | nu
   }
 }
 
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function fetchQuote(symbol: string, opts: { mock: boolean }): Promise<Quote | null> {
   const sym = symbol.toUpperCase().trim();
   if (!sym || sym.length > 20) throw new Error("Mã không hợp lệ");
   if (opts.mock) return mockQuote(sym);
 
-  const yahoo = await fetchQuoteFromYahoo(sym);
+  // Ưu tiên tốc độ: gọi song song các nguồn chính, sau đó chọn theo độ tin cậy.
+  const [yahoo, tcbs, vn] = await Promise.all([
+    withTimeout(fetchQuoteFromYahoo(sym), 1800),
+    withTimeout(fetchQuoteFromTcbs(sym), 2200),
+    withTimeout(fetchQuoteFromVndirect(sym), 2200),
+  ]);
   if (yahoo) return yahoo;
-
-  const tcbs = await fetchQuoteFromTcbs(sym);
   if (tcbs) return tcbs;
-
-  const vn = await fetchQuoteFromVndirect(sym);
   if (vn) return vn;
 
-  const vnHistory = await fetchQuoteFromVndirectHistory(sym);
+  const vnHistory = await withTimeout(fetchQuoteFromVndirectHistory(sym), 1800);
   if (vnHistory) return vnHistory;
 
   return null;

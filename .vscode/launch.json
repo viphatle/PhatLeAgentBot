@@ -1,0 +1,34 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Debug on Localhost (Desktop)",
+            "url": "http://localhost:3000",
+            "webRoot": "${workspaceFolder}"
+        },
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Debug on LAN (Mobile/Other Device)",
+            "url": "http://${input:localIp}:3000",
+            "webRoot": "${workspaceFolder}"
+        },
+        {
+            "type": "chrome",
+            "request": "attach",
+            "name": "Attach to Chrome",
+            "port": 9222,
+            "webRoot": "${workspaceFolder}"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "localIp",
+            "type": "promptString",
+            "description": "Enter your computer's IP address (run 'ipconfig' on Windows or 'ifconfig' on Mac to find it)",
+            "default": "192.168.1.x"
+        }
+    ]
+}
