@@ -320,49 +320,72 @@ function computeForecast(points: HistoryPoint[], horizonSessions: number): Forec
   const trendStrength = Math.abs(slope) / (volatility * last + 0.001);
   
   // Base forecast
-  const nextBase = Math.max(0, last + slope);
   const horizonBase = Math.max(0, last + slope * horizonSessions);
   
-  // Multi-scenario analysis
+  // Multi-scenario analysis - ensure consistent ordering: bear < base < bull
   const volatilityFactor = volatility * last * Math.sqrt(horizonSessions);
   
-  // Bull scenario: positive momentum + lower volatility
-  const bullPrice = Math.min(resistanceLevel, horizonBase + volatilityFactor * 1.5);
-  const bullProb = slope > 0 ? Math.min(50, 25 + trendStrength * 10) : Math.max(10, 15 - trendStrength * 5);
+  // Bull scenario: base + upward adjustment (always higher than base)
+  const bullAdjustment = Math.abs(slope) * horizonSessions * 0.5 + volatilityFactor * 1.2;
+  const bullPrice = Math.max(
+    horizonBase * 1.02,  // At least 2% above base
+    Math.min(resistanceLevel, horizonBase + bullAdjustment)
+  );
   
-  // Bear scenario: negative momentum + higher volatility
-  const bearPrice = Math.max(supportLevel, horizonBase - volatilityFactor * 1.5);
-  const bearProb = slope < 0 ? Math.min(50, 25 + trendStrength * 10) : Math.max(10, 15 - trendStrength * 5);
+  // Bear scenario: base - downward adjustment (always lower than base)
+  const bearAdjustment = Math.abs(slope) * horizonSessions * 0.5 + volatilityFactor * 1.2;
+  const bearPrice = Math.min(
+    horizonBase * 0.98,  // At least 2% below base
+    Math.max(supportLevel, horizonBase - bearAdjustment)
+  );
+  
+  // Calculate probabilities based on trend direction
+  let bullProb: number;
+  let bearProb: number;
+  
+  if (slope > 0) {
+    // Uptrend: higher probability for bull
+    bullProb = Math.min(45, 30 + trendStrength * 8);
+    bearProb = Math.max(15, 20 - trendStrength * 5);
+  } else if (slope < 0) {
+    // Downtrend: higher probability for bear
+    bullProb = Math.max(15, 20 - trendStrength * 5);
+    bearProb = Math.min(45, 30 + trendStrength * 8);
+  } else {
+    // Sideway: balanced
+    bullProb = 25;
+    bearProb = 25;
+  }
   
   // Base scenario (most likely)
-  const baseProb = 100 - bullProb - bearProb;
+  const baseProb = 100 - Math.round(bullProb) - Math.round(bearProb);
   
   const scenarios: ForecastScenario[] = [
     {
       name: "bull",
-      price: bullPrice,
+      price: Math.max(bullPrice, horizonBase * 1.05),  // Ensure bull > base
       probability: Math.round(bullProb),
       description: slope > 0 
-        ? "Xu hướng tăng mạnh với đà tích cực" 
+        ? "Xu hướng tăng mạnh, đà tích cực tiếp diễn" 
         : "Phục hồi kỹ thuật từ vùng hỗ trợ",
     },
     {
       name: "base",
       price: horizonBase,
-      probability: Math.round(baseProb),
-      description: Math.abs(slope) < 0.01 * last
+      probability: Math.max(10, baseProb),  // Ensure minimum 10%
+      description: Math.abs(slope) < 0.005 * last
         ? "Sideway trong biên độ hẹp"
         : slope > 0 
-          ? "Xu hướng tăng ôn định"
+          ? "Xu hướng tăng ôn định theo đà hiện tại"
           : "Xu hướng giảm có kiểm soát",
     },
     {
       name: "bear",
-      price: bearPrice,
+      price: Math.min(bearPrice, horizonBase * 0.95),  // Ensure bear < base
       probability: Math.round(bearProb),
       description: slope < 0 
-        ? "Xu hướng giảm với áp lực bán" 
-        : "Điều chỉnh kỹ thuật ngắn hạn",
+        ? "Xu hướng giảm mạnh với áp lực bán" 
+        : "Điều chỉnh kỹ thuật ngắn hạn về vùng hỗ trợ",
     },
   ];
   

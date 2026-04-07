@@ -133,7 +133,7 @@ export async function setScheduleEvents(next: ScheduleEvent[]) {
 
 export type PnlAlertState = {
   day: string;
-  direction: "up" | "down" | null;
+  alert_level: number | null;  // e.g., 0, -10, -20, etc.
 };
 
 export async function getPnlAlertState(symbol: string): Promise<PnlAlertState | null> {

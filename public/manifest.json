@@ -1,0 +1,18 @@
+{
+  "name": "Stock Monitor VN",
+  "short_name": "Stock VN",
+  "description": "Theo dõi giá cổ phiếu Việt Nam thời gian thực với dự báo và phân tích kỹ thuật",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0f1a",
+  "theme_color": "#0a0f1a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
