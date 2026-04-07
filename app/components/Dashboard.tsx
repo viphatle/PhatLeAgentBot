@@ -138,6 +138,11 @@ export function Dashboard() {
               Cập nhật giá: {lastQuoteUpdate}
             </span>
           ) : null}
+          <span className="inline-flex items-center gap-1 rounded-full soft-pill px-2 py-1 text-xs text-slate-400" title="Nguồn dữ liệu: ● FireAnt (real-time), ● TCBS, ● Yahoo (delayed)">
+            <span className="text-green-400">●</span> FireAnt
+            <span className="ml-1 text-blue-400">●</span> TCBS
+            <span className="ml-1 text-slate-500">●</span> Yahoo
+          </span>
         </div>
       </header>
 

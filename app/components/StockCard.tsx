@@ -75,6 +75,21 @@ export function StockCard({
               <span className="ml-2 text-xs text-slate-400" title={formatNumberVn(quote.volume)}>
                 KLGD: {formatCompactVn(quote.volume)}
               </span>
+            {quote.source === "fireant" && (
+              <span className="ml-1 text-xs text-green-400" title="FireAnt - Giá real-time">
+                ●
+              </span>
+            )}
+            {quote.source === "tcbs" && (
+              <span className="ml-1 text-xs text-blue-400" title="TCBS">
+                ●
+              </span>
+            )}
+            {quote.source === "yahoo" && (
+              <span className="ml-1 text-xs text-slate-500" title="Yahoo (delayed ~15-20 min)">
+                ●
+              </span>
+            )}
             {quote.source === "mock_demo" && (
               <span className="ml-1 text-xs text-amber-200/90" title="Không phải giá sàn thật">
                 giả lập (cài đặt)
@@ -181,6 +196,18 @@ export function MobileStockCard({
               <span className={color}>
                 ({formatStockDelta(quote.change)}, {formatPercent(quote.change_pct)})
               </span>
+              {quote.source === "fireant" && (
+                <span className="ml-1 text-xs text-green-400" title="FireAnt - Giá real-time">●</span>
+              )}
+              {quote.source === "tcbs" && (
+                <span className="ml-1 text-xs text-blue-400" title="TCBS">●</span>
+              )}
+              {quote.source === "yahoo" && (
+                <span className="ml-1 text-xs text-slate-500" title="Yahoo (delayed ~15-20 min)">●</span>
+              )}
+              {quote.source === "mock_demo" && (
+                <span className="ml-1 text-xs text-amber-200/90" title="Giả lập">(demo)</span>
+              )}
             </span>
           )}
         </div>

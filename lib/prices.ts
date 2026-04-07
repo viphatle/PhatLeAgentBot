@@ -1,6 +1,7 @@
 import type { Quote } from "./types";
 import { fetchQuoteFromTcbs } from "./tcbs";
 import { fetchQuoteFromYahoo } from "./yahoo";
+import { fetchQuoteFromFireant } from "./fireant";
 
 const VNDIRECT = "https://finfo-api.vndirect.com.vn/v4/stock-prices";
 const VNDIRECT_HISTORY = "https://api-finfo.vndirect.com.vn/v4/stock_prices";
@@ -177,15 +178,15 @@ export async function fetchQuote(symbol: string, opts: { mock: boolean }): Promi
   if (!sym || sym.length > 20) throw new Error("Mã không hợp lệ");
   if (opts.mock) return mockQuote(sym);
 
-  // Ưu tiên tốc độ: gọi song song các nguồn chính, sau đó chọn theo độ tin cậy.
-  const [yahoo, tcbs, vn] = await Promise.all([
-    withTimeout(fetchQuoteFromYahoo(sym), 1_200),
+  // Ưu tiên: FireAnt (real-time) → TCBS (nhanh) → Yahoo (ổn định) → VNDIRECT (fallback)
+  const [fireant, tcbs, yahoo] = await Promise.all([
+    withTimeout(fetchQuoteFromFireant(sym), 2_500),
     withTimeout(fetchQuoteFromTcbs(sym), 1_500),
-    withTimeout(fetchQuoteFromVndirect(sym), 1_500),
+    withTimeout(fetchQuoteFromYahoo(sym), 1_200),
   ]);
-  if (yahoo) return yahoo;
+  if (fireant) return fireant;
   if (tcbs) return tcbs;
-  if (vn) return vn;
+  if (yahoo) return yahoo;
 
   const vnHistory = await withTimeout(fetchQuoteFromVndirectHistory(sym), 1800);
   if (vnHistory) return vnHistory;

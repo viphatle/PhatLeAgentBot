@@ -21,7 +21,7 @@ export type AppSettings = {
 };
 
 /** mock_demo = bật trong cài đặt */
-export type QuoteSource = "yahoo" | "vndirect" | "tcbs" | "mock_demo";
+export type QuoteSource = "yahoo" | "vndirect" | "tcbs" | "fireant" | "ssi" | "mock_demo";
 
 export type Quote = {
   symbol: string;
