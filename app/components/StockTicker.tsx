@@ -4,6 +4,8 @@ import type { WatchItem } from "@/lib/types";
 import { formatCompactVn, formatNumberVn, formatPercent, formatStockDelta, formatStockPrice } from "@/lib/format";
 import { comparableBuyPrice } from "@/lib/pnl";
 import { lookupCompanyNameVi } from "@/lib/company-vi";
+import Link from "next/link";
+import { useState } from "react";
 
 export type QuoteView = {
   price: number;
@@ -79,9 +81,15 @@ export function StockTickerCard({
       {/* Header: Symbol & Source */}
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="text-2xl font-black tracking-tight font-mono text-white">
-            {item.symbol}
-          </h3>
+          <Link 
+            href={`/stocks/${encodeURIComponent(item.symbol)}`}
+            className="group"
+          >
+            <h3 className="text-2xl font-black tracking-tight font-mono text-white group-hover:text-emerald-400 transition-colors cursor-pointer">
+              {item.symbol}
+              <span className="ml-1 text-xs text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+            </h3>
+          </Link>
           <p className="text-xs text-slate-400 truncate max-w-[180px]" title={item.display_name}>
             {item.display_name}
           </p>
@@ -110,8 +118,11 @@ export function StockTickerCard({
         </div>
       </div>
 
-      {/* Price Section */}
-      <div className="space-y-1">
+      {/* Price Section - Clickable to view details */}
+      <Link 
+        href={`/stocks/${encodeURIComponent(item.symbol)}`}
+        className="block space-y-1 cursor-pointer group"
+      >
         {loading && !quote ? (
           <div className="h-10 flex items-center">
             <span className="text-slate-500 text-sm">Loading...</span>
@@ -123,7 +134,7 @@ export function StockTickerCard({
         ) : (
           <>
             <div className="flex items-baseline gap-2">
-              <span className={`text-3xl font-black font-mono tracking-tight ${priceColor}`}>
+              <span className={`text-3xl font-black font-mono tracking-tight ${priceColor} group-hover:brightness-110 transition-all`}>
                 {arrow} {formatStockPrice(quote.price)}
               </span>
             </div>
@@ -133,9 +144,12 @@ export function StockTickerCard({
             <div className="text-xs text-slate-500 font-mono">
               Vol: {formatCompactVn(quote.volume)}
             </div>
+            <div className="text-[10px] text-slate-600 mt-1">
+              Click để xem thống kê & dự báo →
+            </div>
           </>
         )}
-      </div>
+      </Link>
 
       {/* PnL Section (if buy price set) */}
       {hasPnl && pnlValue !== null && (
