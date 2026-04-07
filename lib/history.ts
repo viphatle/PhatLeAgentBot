@@ -34,12 +34,23 @@ export type HistoryStats = {
   volatility_pct: number;
 };
 
+export type ForecastScenario = {
+  name: "bull" | "base" | "bear";
+  price: number;
+  probability: number;
+  description: string;
+};
+
 export type Forecast = {
   next_session: number;
   horizon_end: number;
   horizon_sessions: number;
   slope_per_session: number;
   confidence: "low" | "medium" | "high";
+  scenarios: ForecastScenario[];
+  trend_strength: number;
+  support_level: number;
+  resistance_level: number;
 };
 
 export type HistoryResult = {
@@ -251,42 +262,132 @@ function computeForecast(points: HistoryPoint[], horizonSessions: number): Forec
   const closes = points.map((p) => p.close);
   const n = closes.length;
   const last = closes[n - 1];
-  if (n < 3) {
+  
+  // Calculate support and resistance from recent price action
+  const recentCloses = closes.slice(-20);
+  const recentHigh = Math.max(...recentCloses);
+  const recentLow = Math.min(...recentCloses);
+  const supportLevel = recentLow * 0.995;
+  const resistanceLevel = recentHigh * 1.005;
+  
+  if (n < 5) {
+    const baseScenario: ForecastScenario = {
+      name: "base",
+      price: last,
+      probability: 100,
+      description: "Không đủ dữ liệu để dự báo",
+    };
     return {
       next_session: last,
       horizon_end: last,
       horizon_sessions: horizonSessions,
       slope_per_session: 0,
       confidence: "low",
+      scenarios: [baseScenario],
+      trend_strength: 0,
+      support_level: supportLevel,
+      resistance_level: resistanceLevel,
     };
   }
 
-  const start = Math.max(0, n - 30);
-  const xs = Array.from({ length: n - start }, (_, i) => i);
-  const ys = closes.slice(start);
-  const xMean = xs.reduce((a, b) => a + b, 0) / xs.length;
-  const yMean = ys.reduce((a, b) => a + b, 0) / ys.length;
+  // Weighted linear regression (more weight on recent data)
+  const lookback = Math.min(n - 1, 30);
+  const weights = Array.from({ length: lookback }, (_, i) => (i + 1) / lookback);
+  const xs = Array.from({ length: lookback }, (_, i) => i);
+  const ys = closes.slice(-lookback);
+  
+  const weightedMean = (arr: number[], w: number[]) => {
+    const sumW = w.reduce((a, b) => a + b, 0);
+    return arr.reduce((sum, val, i) => sum + val * w[i], 0) / sumW;
+  };
+  
+  const xMean = weightedMean(xs, weights);
+  const yMean = weightedMean(ys, weights);
+  
   let cov = 0;
   let varX = 0;
-  for (let i = 0; i < xs.length; i += 1) {
-    cov += (xs[i] - xMean) * (ys[i] - yMean);
-    varX += (xs[i] - xMean) ** 2;
+  for (let i = 0; i < lookback; i++) {
+    cov += weights[i] * (xs[i] - xMean) * (ys[i] - yMean);
+    varX += weights[i] * (xs[i] - xMean) ** 2;
   }
+  
   const slope = varX > 0 ? cov / varX : 0;
-  const next = Math.max(0, last + slope);
-  const horizon = Math.max(0, last + slope * horizonSessions);
-
-  const retStd = stdDev(
-    ys.slice(1).map((v, i) => (ys[i] > 0 ? (v - ys[i]) / ys[i] : 0)),
-  );
-  const confidence: Forecast["confidence"] = retStd < 0.01 ? "high" : retStd < 0.02 ? "medium" : "low";
+  const intercept = yMean - slope * xMean;
+  
+  // Calculate volatility and trend strength
+  const returns = ys.slice(1).map((v, i) => (ys[i] > 0 ? (v - ys[i]) / ys[i] : 0));
+  const volatility = stdDev(returns);
+  const trendStrength = Math.abs(slope) / (volatility * last + 0.001);
+  
+  // Base forecast
+  const nextBase = Math.max(0, last + slope);
+  const horizonBase = Math.max(0, last + slope * horizonSessions);
+  
+  // Multi-scenario analysis
+  const volatilityFactor = volatility * last * Math.sqrt(horizonSessions);
+  
+  // Bull scenario: positive momentum + lower volatility
+  const bullPrice = Math.min(resistanceLevel, horizonBase + volatilityFactor * 1.5);
+  const bullProb = slope > 0 ? Math.min(50, 25 + trendStrength * 10) : Math.max(10, 15 - trendStrength * 5);
+  
+  // Bear scenario: negative momentum + higher volatility
+  const bearPrice = Math.max(supportLevel, horizonBase - volatilityFactor * 1.5);
+  const bearProb = slope < 0 ? Math.min(50, 25 + trendStrength * 10) : Math.max(10, 15 - trendStrength * 5);
+  
+  // Base scenario (most likely)
+  const baseProb = 100 - bullProb - bearProb;
+  
+  const scenarios: ForecastScenario[] = [
+    {
+      name: "bull",
+      price: bullPrice,
+      probability: Math.round(bullProb),
+      description: slope > 0 
+        ? "Xu hướng tăng mạnh với đà tích cực" 
+        : "Phục hồi kỹ thuật từ vùng hỗ trợ",
+    },
+    {
+      name: "base",
+      price: horizonBase,
+      probability: Math.round(baseProb),
+      description: Math.abs(slope) < 0.01 * last
+        ? "Sideway trong biên độ hẹp"
+        : slope > 0 
+          ? "Xu hướng tăng ôn định"
+          : "Xu hướng giảm có kiểm soát",
+    },
+    {
+      name: "bear",
+      price: bearPrice,
+      probability: Math.round(bearProb),
+      description: slope < 0 
+        ? "Xu hướng giảm với áp lực bán" 
+        : "Điều chỉnh kỹ thuật ngắn hạn",
+    },
+  ];
+  
+  // Confidence based on data quality
+  let confidence: Forecast["confidence"] = "low";
+  if (n >= 20 && volatility < 0.02) {
+    confidence = "high";
+  } else if (n >= 10 && volatility < 0.03) {
+    confidence = "medium";
+  }
+  
+  // Next session forecast with mean reversion adjustment
+  const meanReversion = (yMean - last) * 0.1;
+  const nextSession = Math.max(0, last + slope * 0.7 + meanReversion * 0.3);
 
   return {
-    next_session: next,
-    horizon_end: horizon,
+    next_session: nextSession,
+    horizon_end: horizonBase,
     horizon_sessions: horizonSessions,
     slope_per_session: slope,
     confidence,
+    scenarios,
+    trend_strength: Math.min(1, trendStrength),
+    support_level: supportLevel,
+    resistance_level: resistanceLevel,
   };
 }
 

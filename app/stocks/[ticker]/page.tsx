@@ -12,6 +12,13 @@ type HistoryPoint = {
   volume: number;
 };
 
+type ForecastScenario = {
+  name: "bull" | "base" | "bear";
+  price: number;
+  probability: number;
+  description: string;
+};
+
 type HistoryResponse = {
   symbol: string;
   period: Period;
@@ -43,6 +50,10 @@ type HistoryResponse = {
     horizon_sessions: number;
     slope_per_session: number;
     confidence: "low" | "medium" | "high";
+    scenarios: ForecastScenario[];
+    trend_strength: number;
+    support_level: number;
+    resistance_level: number;
   };
 };
 
@@ -68,304 +79,346 @@ function axisTicks(min: number, max: number, count: number) {
   return Array.from({ length: count }, (_, i) => min + step * i);
 }
 
+function getTrendColor(trend: number): string {
+  if (trend > 0.6) return "text-emerald-400";
+  if (trend > 0.3) return "text-emerald-300";
+  if (trend > -0.3) return "text-slate-400";
+  if (trend > -0.6) return "text-rose-300";
+  return "text-rose-400";
+}
+
+function getTrendBg(trend: number): string {
+  if (trend > 0.6) return "bg-emerald-500/20 border-emerald-500/40";
+  if (trend > 0.3) return "bg-emerald-500/10 border-emerald-500/30";
+  if (trend > -0.3) return "bg-slate-500/10 border-slate-500/30";
+  if (trend > -0.6) return "bg-rose-500/10 border-rose-500/30";
+  return "bg-rose-500/20 border-rose-500/40";
+}
+
+function StatCard({ 
+  label, 
+  value, 
+  subtext, 
+  trend,
+  loading 
+}: { 
+  label: string; 
+  value: string; 
+  subtext?: string;
+  trend?: number;
+  loading?: boolean;
+}) {
+  const colorClass = trend !== undefined ? getTrendBg(trend) : "bg-slate-800/50 border-slate-700/50";
+  
+  return (
+    <div className={`rounded-xl border ${colorClass} p-4 transition-all hover:scale-[1.02]`}>
+      <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">{label}</div>
+      {loading ? (
+        <div className="h-8 flex items-center">
+          <span className="text-slate-600 text-sm">Loading...</span>
+        </div>
+      ) : (
+        <>
+          <div className="text-2xl font-black font-mono text-white">{value}</div>
+          {subtext && <div className="text-xs text-slate-500 mt-1">{subtext}</div>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function getRSISignal(rsi: number | null): "buy" | "sell" | "neutral" {
+  if (rsi === null) return "neutral";
+  if (rsi <= 30) return "buy";
+  if (rsi >= 70) return "sell";
+  return "neutral";
+}
+
+function getMACDSignal(macd: number | null, signal: number | null): "buy" | "sell" | "neutral" {
+  if (macd === null || signal === null) return "neutral";
+  if (macd > signal && macd > 0) return "buy";
+  if (macd < signal && macd < 0) return "sell";
+  return "neutral";
+}
+
+function getMASignal(price: number, ma: number | null): "buy" | "sell" | "neutral" {
+  if (ma === null) return "neutral";
+  if (price > ma * 1.02) return "buy";
+  if (price < ma * 0.98) return "sell";
+  return "neutral";
+}
+
+function TechnicalIndicator({ 
+  name, 
+  value, 
+  signal 
+}: { 
+  name: string; 
+  value: string; 
+  signal: "buy" | "sell" | "neutral";
+}) {
+  const signalColors = {
+    buy: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
+    sell: "text-rose-400 bg-rose-500/10 border-rose-500/30",
+    neutral: "text-slate-400 bg-slate-500/10 border-slate-500/30",
+  };
+  
+  const signalLabels = {
+    buy: "MUA",
+    sell: "BÁN", 
+    neutral: "TRUNG LẬP",
+  };
+
+  return (
+    <div className={`rounded-lg border border-slate-700/50 bg-slate-800/50 p-3 flex items-center justify-between`}>
+      <div>
+        <div className="text-xs text-slate-500">{name}</div>
+        <div className="text-lg font-mono text-white font-bold">{value}</div>
+      </div>
+      <span className={`text-[10px] font-bold px-2 py-1 rounded ${signalColors[signal]}`}>
+        {signalLabels[signal]}
+      </span>
+    </div>
+  );
+}
+
+function ScenarioCard({ scenario, currentPrice }: { scenario: ForecastScenario; currentPrice: number }) {
+  const change = ((scenario.price - currentPrice) / currentPrice) * 100;
+  const isPositive = change >= 0;
+  
+  const colorClass = scenario.name === "bull" 
+    ? "border-emerald-500/30 bg-emerald-500/10" 
+    : scenario.name === "bear"
+    ? "border-rose-500/30 bg-rose-500/10"
+    : "border-blue-500/30 bg-blue-500/10";
+    
+  const probColor = scenario.probability > 50 ? "text-emerald-400" : scenario.probability > 30 ? "text-blue-400" : "text-slate-400";
+
+  return (
+    <div className={`rounded-xl border ${colorClass} p-4`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs uppercase tracking-wider font-bold text-slate-400">
+          {scenario.name === "bull" ? "🐂 Bull Case" : scenario.name === "bear" ? "🐻 Bear Case" : "📊 Base Case"}
+        </span>
+        <span className={`text-xs font-mono ${probColor}`}>{scenario.probability}% prob</span>
+      </div>
+      <div className="text-2xl font-black font-mono text-white mb-1">
+        {formatStockPrice(scenario.price)}
+      </div>
+      <div className={`text-sm font-mono ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
+        {isPositive ? "+" : ""}{formatPercent(change)}
+      </div>
+      <p className="text-xs text-slate-500 mt-2">{scenario.description}</p>
+    </div>
+  );
+}
+
 function toneClass(tone: Tone) {
-  if (tone === "good") return "text-up";
-  if (tone === "warn") return "text-down";
-  return "text-slate-300";
+  if (tone === "good") return "text-emerald-400";
+  if (tone === "warn") return "text-rose-400";
+  return "text-slate-400";
 }
 
 function PriceChart({
   points,
   maSeries,
-  maLabel,
+  support,
+  resistance,
 }: {
   points: HistoryPoint[];
   maSeries: Array<number | null>;
-  maLabel: string;
+  support?: number;
+  resistance?: number;
 }) {
   const width = 920;
-  const height = 340;
+  const height = 360;
   const left = 70;
   const right = 38;
-  const top = 20;
-  const bottom = 44;
+  const top = 24;
+  const bottom = 48;
   const values = points.map((p) => p.close);
   const maValues = maSeries.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
   const allValues = maValues.length ? [...values, ...maValues] : values;
+  
+  // Include support/resistance in range calculation
+  if (support && Number.isFinite(support)) allValues.push(support);
+  if (resistance && Number.isFinite(resistance)) allValues.push(resistance);
+  
   const min = Math.min(...allValues);
   const max = Math.max(...allValues);
   const range = Math.max(1, max - min);
   const chartW = width - left - right;
   const chartH = height - top - bottom;
   const dx = chartW / Math.max(1, points.length - 1);
-  const yTicks = axisTicks(min, max, 6);
-  const xTickIndexes = Array.from({ length: 5 }, (_, i) =>
-    Math.round((i * (points.length - 1)) / 4),
-  ).filter((v, i, arr) => arr.indexOf(v) === i);
 
-  const path = points
-    .map((p, i) => {
-      const x = left + i * dx;
-      const y = top + ((max - p.close) / range) * chartH;
-      return `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
+  const yAt = (v: number) => top + chartH - ((v - min) / range) * chartH;
+  const xAt = (i: number) => left + i * dx;
+
+  const yTicks = axisTicks(min, max, 6);
+  const xTickIndexes = [0, Math.floor((points.length - 1) / 2), points.length - 1].filter(
+    (v, i, a) => a.indexOf(v) === i,
+  );
+
+  const pathD = points
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${xAt(i)} ${yAt(p.close)}`)
     .join(" ");
 
-  const maPath = points
-    .map((p, i) => {
-      const ma = maSeries[i];
-      if (ma === null || !Number.isFinite(ma)) return "";
-      const x = left + i * dx;
-      const y = top + ((max - ma) / range) * chartH;
-      return `${i === 0 || maSeries[i - 1] === null ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
+  const maPathD = maSeries
+    .map((v, i) => (v != null ? `${i === 0 || maSeries[i - 1] == null ? "M" : "L"} ${xAt(i)} ${yAt(v)}` : ""))
     .filter(Boolean)
     .join(" ");
 
-  const first = values[0];
-  const last = values[values.length - 1];
-  const up = last >= first;
+  const lastPrice = points[points.length - 1]?.close;
+  const up = points.length > 1 ? lastPrice >= points[0].close : true;
+  const priceColor = up ? "#34d399" : "#fb7185";
 
   return (
-    <div className="rounded-xl border border-line/70 bg-surface/40 p-3">
-      <div className="mb-2 flex items-center justify-between text-xs text-slate-300">
-        <span>Đồ thị giá đóng cửa</span>
-        <div className="flex items-center gap-3">
-          <span className={up ? "text-up" : "text-down"}>
-            {formatStockPrice(last)} ({formatPercent(first > 0 ? ((last - first) / first) * 100 : 0)})
+    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 overflow-hidden">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-bold text-slate-300">📈 Đồ thị giá đóng cửa</h3>
+        <div className="flex items-center gap-3 text-xs">
+          <span className="flex items-center gap-1">
+            <span className="w-3 h-0.5 bg-emerald-400 rounded"></span>
+            <span className="text-slate-500">Giá</span>
           </span>
-          <span className="text-brand">• {maLabel}</span>
+          <span className="flex items-center gap-1">
+            <span className="w-3 h-0.5 bg-blue-400 rounded"></span>
+            <span className="text-slate-500">MA</span>
+          </span>
+          {support && (
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-0.5 bg-emerald-600 rounded border-b border-dashed"></span>
+              <span className="text-slate-500">Support</span>
+            </span>
+          )}
+          {resistance && (
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-0.5 bg-rose-600 rounded border-b border-dashed"></span>
+              <span className="text-slate-500">Resistance</span>
+            </span>
+          )}
         </div>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-64 w-full">
-        <defs>
-          <linearGradient id="lineGlow" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={up ? "#2fd28b" : "#ff6b6b"} stopOpacity="0.95" />
-            <stop offset="100%" stopColor={up ? "#2fd28b" : "#ff6b6b"} stopOpacity="0.35" />
-          </linearGradient>
-        </defs>
-        {yTicks.map((t) => {
-          const y = top + ((max - t) / range) * chartH;
-          return (
-            <g key={`yt-${t}`}>
-              <line x1={left} y1={y} x2={width - right} y2={y} stroke="rgba(148,167,196,0.18)" strokeWidth="1" />
-              <text x={left - 8} y={y + 4} textAnchor="end" fontSize="11" fill="rgba(180,198,220,0.85)">
-                {formatStockPrice(t)}
-              </text>
-            </g>
-          );
-        })}
-        {xTickIndexes.map((idx) => {
-          const x = left + idx * dx;
-          const anchor = idx === 0 ? "start" : idx === points.length - 1 ? "end" : "middle";
-          const textX = idx === 0 ? x + 2 : idx === points.length - 1 ? x - 2 : x;
-          return (
-            <g key={`xt-${idx}`}>
-              <line x1={x} y1={top} x2={x} y2={height - bottom} stroke="rgba(148,167,196,0.1)" strokeWidth="1" />
-              <text x={textX} y={height - 14} textAnchor={anchor} fontSize="11" fill="rgba(180,198,220,0.85)">
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ minWidth: 600 }}>
+          {/* Grid lines */}
+          {yTicks.map((t, i) => {
+            const y = yAt(t);
+            return (
+              <g key={`yt-${i}`}>
+                <line x1={left} y1={y} x2={width - right} y2={y} stroke="rgba(51,65,85,0.5)" strokeWidth="1" />
+                <text x={left - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#64748b" fontFamily="monospace">
+                  {formatCompactVn(t)}
+                </text>
+              </g>
+            );
+          })}
+          
+          {/* Support/Resistance lines */}
+          {support && (
+            <>
+              <line x1={left} y1={yAt(support)} x2={width - right} y2={yAt(support)} stroke="#059669" strokeWidth="1" strokeDasharray="4,4" opacity={0.6} />
+              <text x={width - right + 4} y={yAt(support) + 4} fontSize="10" fill="#059669" fontFamily="monospace">S</text>
+            </>
+          )}
+          {resistance && (
+            <>
+              <line x1={left} y1={yAt(resistance)} x2={width - right} y2={yAt(resistance)} stroke="#dc2626" strokeWidth="1" strokeDasharray="4,4" opacity={0.6} />
+              <text x={width - right + 4} y={yAt(resistance) + 4} fontSize="10" fill="#dc2626" fontFamily="monospace">R</text>
+            </>
+          )}
+          
+          {/* Price line */}
+          <path d={pathD} fill="none" stroke={priceColor} strokeWidth={2} />
+          
+          {/* MA line */}
+          {maPathD && <path d={maPathD} fill="none" stroke="#60a5fa" strokeWidth={1.5} opacity={0.8} />}
+          
+          {/* X-axis labels */}
+          {xTickIndexes.map((idx) => {
+            const x = xAt(idx);
+            return (
+              <text key={`xt-${idx}`} x={x} y={height - 16} textAnchor="middle" fontSize="11" fill="#64748b" fontFamily="monospace">
                 {dateShort(points[idx].date)}
               </text>
-            </g>
-          );
-        })}
-        {maPath ? <path d={maPath} fill="none" stroke="rgba(56,168,255,0.95)" strokeWidth="2" strokeLinecap="round" /> : null}
-        <path d={path} fill="none" stroke="url(#lineGlow)" strokeWidth="3" strokeLinecap="round" />
-      </svg>
+            );
+          })}
+          
+          {/* Current price label */}
+          <text x={xAt(points.length - 1) + 8} y={yAt(lastPrice) - 8} fontSize="11" fill={priceColor} fontWeight="bold" fontFamily="monospace">
+            {formatStockPrice(lastPrice)}
+          </text>
+        </svg>
+      </div>
     </div>
   );
 }
 
 function VolumeBars({ points }: { points: HistoryPoint[] }) {
   const width = 920;
-  const height = 220;
-  const left = 64;
-  const right = 18;
-  const top = 16;
-  const bottom = 36;
+  const height = 200;
+  const left = 70;
+  const right = 38;
+  const top = 20;
+  const bottom = 40;
   const chartW = width - left - right;
   const chartH = height - top - bottom;
-  const barW = chartW / Math.max(1, points.length);
   const maxVol = Math.max(...points.map((p) => p.volume), 1);
-  const xTickIndexes = [0, Math.floor((points.length - 1) / 2), points.length - 1]
-    .filter((v, i, arr) => arr.indexOf(v) === i);
+  const barW = chartW / points.length;
+
+  const yTicks = axisTicks(0, maxVol, 4);
+  const xTickIndexes = [0, Math.floor((points.length - 1) / 2), points.length - 1].filter(
+    (v, i, a) => a.indexOf(v) === i,
+  );
 
   return (
-    <div className="rounded-xl border border-line/70 bg-surface/40 p-3">
-      <div className="mb-2 text-xs text-slate-300">Khối lượng giao dịch theo phiên</div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full">
-        {[0, maxVol / 2, maxVol].map((tick) => {
-          const y = top + (1 - tick / maxVol) * chartH;
-          return (
-            <g key={`vt-${tick}`}>
-              <line x1={left} y1={y} x2={width - right} y2={y} stroke="rgba(148,167,196,0.16)" strokeWidth="1" />
-              <text x={left - 8} y={y + 4} textAnchor="end" fontSize="11" fill="rgba(180,198,220,0.85)">
-                {formatCompactVn(tick)}
+    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 overflow-hidden">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-bold text-slate-300">📊 Khối lượng giao dịch</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ minWidth: 600 }}>
+          {yTicks.map((t, i) => {
+            const y = top + chartH - (t / maxVol) * chartH;
+            return (
+              <g key={`vt-${i}`}>
+                <line x1={left} y1={y} x2={width - right} y2={y} stroke="rgba(51,65,85,0.3)" strokeWidth="1" />
+                <text x={left - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#64748b" fontFamily="monospace">
+                  {formatCompactVn(t)}
+                </text>
+              </g>
+            );
+          })}
+          {points.map((p, i) => {
+            const h = Math.max(2, (p.volume / maxVol) * chartH);
+            const x = left + i * barW + 1;
+            const y = top + chartH - h;
+            const isHighVolume = p.volume > maxVol * 0.7;
+            return (
+              <rect
+                key={`${p.date}-vol`}
+                x={x}
+                y={y}
+                width={Math.max(1, barW - 2)}
+                height={h}
+                rx={2}
+                fill={isHighVolume ? "#3b82f6" : "#1e40af"}
+                opacity={isHighVolume ? 0.9 : 0.5}
+              />
+            );
+          })}
+          {xTickIndexes.map((idx) => {
+            const x = left + idx * barW + barW / 2;
+            return (
+              <text key={`vx-${idx}`} x={x} y={height - 12} textAnchor="middle" fontSize="10" fill="#64748b" fontFamily="monospace">
+                {dateShort(points[idx].date)}
               </text>
-            </g>
-          );
-        })}
-        {points.map((p, i) => {
-          const h = Math.max(2, (p.volume / maxVol) * chartH);
-          const x = left + i * barW + 1;
-          const y = top + chartH - h;
-          return (
-            <rect
-              key={`${p.date}-vol`}
-              x={x}
-              y={y}
-              width={Math.max(1, barW - 2)}
-              height={h}
-              rx={2}
-              fill="rgba(56,168,255,0.74)"
-            />
-          );
-        })}
-        {xTickIndexes.map((idx) => {
-          const x = left + idx * barW + barW / 2;
-          return (
-            <text key={`vx-${idx}`} x={x} y={height - 10} textAnchor="middle" fontSize="11" fill="rgba(180,198,220,0.85)">
-              {dateShort(points[idx].date)}
-            </text>
-          );
-        })}
-      </svg>
+            );
+          })}
+        </svg>
+      </div>
     </div>
   );
-}
-
-function indicatorInsights(data: HistoryResponse) {
-  const closes = data.points.map((p) => p.close);
-  const price = closes[closes.length - 1];
-  const out: string[] = [];
-  const rsi = data.indicators.rsi14;
-  if (rsi !== null) {
-    if (rsi >= 70) out.push("RSI14 ở vùng cao, rủi ro quá mua.");
-    else if (rsi <= 30) out.push("RSI14 ở vùng thấp, có thể quá bán.");
-    else out.push("RSI14 trung tính, xung lực giá chưa cực đoan.");
-  }
-  const ema12 = data.indicators.ema12;
-  const ema26 = data.indicators.ema26;
-  if (ema12 !== null && ema26 !== null) {
-    out.push(ema12 >= ema26 ? "EMA12 nằm trên EMA26: xu hướng ngắn hạn đang mạnh hơn." : "EMA12 dưới EMA26: xu hướng ngắn hạn đang yếu.");
-  }
-  const ma = data.indicators.ma_value;
-  if (ma !== null) {
-    out.push(
-      price >= ma
-        ? `Giá hiện trên MA${data.indicators.ma_period}: thiên hướng tích cực trong kỳ.`
-        : `Giá hiện dưới MA${data.indicators.ma_period}: thiên hướng thận trọng trong kỳ.`,
-    );
-  }
-  const macd = data.indicators.macd;
-  const signal = data.indicators.signal9;
-  if (macd !== null && signal !== null) {
-    out.push(macd >= signal ? "MACD nằm trên Signal: động lượng tăng đang chiếm ưu thế." : "MACD dưới Signal: động lượng giảm đang chiếm ưu thế.");
-  }
-  return out;
-}
-
-function indicatorRows(data: HistoryResponse): Array<{ key: string; value: string; note: string; tone: Tone }> {
-  const closes = data.points.map((p) => p.close);
-  const price = closes[closes.length - 1];
-  const rows: Array<{ key: string; value: string; note: string; tone: Tone }> = [];
-
-  const ma = data.indicators.ma_value;
-  if (ma !== null) {
-    const above = price >= ma;
-    rows.push({
-      key: `MA${data.indicators.ma_period}`,
-      value: formatStockPrice(ma),
-      note: above
-        ? `Giá đang nằm trên MA${data.indicators.ma_period} (tín hiệu tích cực).`
-        : `Giá dưới MA${data.indicators.ma_period} (cần thận trọng xu hướng).`,
-      tone: above ? "good" : "warn",
-    });
-  }
-
-  const ema12 = data.indicators.ema12;
-  const ema26 = data.indicators.ema26;
-  if (ema12 !== null && ema26 !== null) {
-    const up = ema12 >= ema26;
-    rows.push({
-      key: "EMA12/EMA26",
-      value: `${formatStockPrice(ema12)} / ${formatStockPrice(ema26)}`,
-      note: up ? "EMA12 > EMA26: xu hướng ngắn hạn tích cực." : "EMA12 < EMA26: xu hướng ngắn hạn suy yếu.",
-      tone: up ? "good" : "warn",
-    });
-  }
-
-  const rsi = data.indicators.rsi14;
-  if (rsi !== null) {
-    const tone: Tone = rsi >= 70 ? "warn" : rsi <= 30 ? "good" : "neutral";
-    const note =
-      rsi >= 70 ? "RSI14 cao, có rủi ro quá mua." : rsi <= 30 ? "RSI14 thấp, có thể xuất hiện lực hồi." : "RSI14 trung tính.";
-    rows.push({ key: "RSI14", value: formatCompactVn(rsi), note, tone });
-  }
-
-  const macd = data.indicators.macd;
-  const signal = data.indicators.signal9;
-  if (macd !== null && signal !== null) {
-    const up = macd >= signal;
-    rows.push({
-      key: "MACD/Signal",
-      value: `${formatStockDelta(macd)} / ${formatStockDelta(signal)}`,
-      note: up ? "MACD trên Signal: động lượng tăng tốt." : "MACD dưới Signal: động lượng giảm chiếm ưu thế.",
-      tone: up ? "good" : "warn",
-    });
-  }
-  return rows;
-}
-
-function forecastAnalysis(
-  selected: HistoryResponse,
-  all: Partial<Record<Period, HistoryResponse>>,
-): Array<{ text: string; tone: Tone }> {
-  const out: Array<{ text: string; tone: Tone }> = [];
-  const last = selected.points[selected.points.length - 1]?.close ?? 0;
-  const expectedPct = last > 0 ? ((selected.forecast.horizon_end - last) / last) * 100 : 0;
-  out.push({
-    text:
-      expectedPct >= 0
-        ? `Kỳ ${selected.period}: mô hình đang kỳ vọng tăng khoảng ${formatPercent(expectedPct)} đến cuối kỳ.`
-        : `Kỳ ${selected.period}: mô hình đang cảnh báo giảm khoảng ${formatPercent(expectedPct)} đến cuối kỳ.`,
-    tone: expectedPct >= 0 ? "good" : "warn",
-  });
-
-  const slopes = PERIODS.map((p) => all[p.id]?.forecast.slope_per_session).filter(
-    (x): x is number => typeof x === "number" && Number.isFinite(x),
-  );
-  if (slopes.length >= 2) {
-    const positive = slopes.filter((x) => x > 0).length;
-    const negative = slopes.filter((x) => x < 0).length;
-    if (positive === slopes.length) {
-      out.push({ text: "Đa kỳ đều nghiêng tăng (tuần-tháng-quý-6 tháng-năm cùng chiều).", tone: "good" });
-    } else if (negative === slopes.length) {
-      out.push({ text: "Đa kỳ cùng chiều giảm, rủi ro tiếp diễn xu hướng giảm.", tone: "warn" });
-    } else {
-      out.push({ text: "Các kỳ đang trái chiều, xác suất nhiễu cao nên quản trị vị thế chặt.", tone: "neutral" });
-    }
-  }
-
-  if (selected.stats.volatility_pct >= 35) {
-    out.push({ text: "Độ biến động cao (>35% năm hoá), nên ưu tiên kịch bản phòng thủ.", tone: "warn" });
-  } else if (selected.stats.volatility_pct <= 18) {
-    out.push({ text: "Độ biến động thấp, xu hướng có tính ổn định tương đối.", tone: "good" });
-  } else {
-    out.push({ text: "Độ biến động trung bình, cần theo dõi xác nhận thêm theo phiên gần nhất.", tone: "neutral" });
-  }
-
-  const cf = selected.forecast.confidence;
-  out.push({
-    text:
-      cf === "high"
-        ? "Độ tin cậy mô hình đang cao."
-        : cf === "medium"
-          ? "Độ tin cậy mô hình ở mức trung bình."
-          : "Độ tin cậy mô hình thấp, chỉ dùng như kịch bản tham khảo.",
-    tone: cf === "high" ? "good" : cf === "low" ? "warn" : "neutral",
-  });
-
-  return out;
 }
 
 export default function StockDetailPage({ params }: { params: { ticker: string } }) {
@@ -441,186 +494,261 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
     const last = data.points[data.points.length - 1].date;
     return `${dateShort(first)} - ${dateShort(last)}`;
   }, [data]);
-  const rows = useMemo(() => (data ? indicatorRows(data) : []), [data]);
-  const analyses = useMemo(() => (data ? forecastAnalysis(data, allPeriods) : []), [data, allPeriods]);
+
+  const trendAlignment = useMemo(() => {
+    if (!data) return 0;
+    const rsiSignal = getRSISignal(data.indicators.rsi14);
+    const macdSignal = getMACDSignal(data.indicators.macd, data.indicators.signal9);
+    const maSignal = getMASignal(latest?.close ?? 0, data.indicators.ma_value);
+    
+    let buyCount = 0;
+    let sellCount = 0;
+    [rsiSignal, macdSignal, maSignal].forEach(s => {
+      if (s === "buy") buyCount++;
+      if (s === "sell") sellCount++;
+    });
+    
+    if (buyCount >= 2) return 1;
+    if (sellCount >= 2) return -1;
+    return 0;
+  }, [data, latest]);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
-      <header className="mb-6 rounded-2xl p-5 glass-card md:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-white md:text-4xl">MÃ CK: {ticker}</h1>
-            <p className="mt-2 text-sm text-slate-300">
-              Thống kê giá, khối lượng, chỉ báo và dự báo theo tuần/tháng/quý/6 tháng/năm.
-            </p>
+    <main className="min-h-screen bg-[#0a0f1a] p-4 md:p-6">
+      {/* Header */}
+      <header className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 md:p-6 backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-black font-mono ${
+              trendAlignment > 0 ? "bg-emerald-500/20 text-emerald-400" : 
+              trendAlignment < 0 ? "bg-rose-500/20 text-rose-400" : 
+              "bg-slate-700/50 text-slate-400"
+            }`}>
+              {ticker}
+            </div>
+            <div>
+              <h1 className="text-2xl font-black tracking-tight text-white md:text-3xl font-mono">
+                {ticker} <span className="text-slate-500">Analytics</span>
+              </h1>
+              <p className="text-sm text-slate-400">
+                Phân tích kỹ thuật & Dự báo xu hướng
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/" className="rounded-lg subtle-btn px-3 py-1.5 text-sm text-slate-100">
-              Quay trở lại trang chủ
+            <Link 
+              href="/" 
+              className="rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-sm text-slate-300 hover:border-slate-600 hover:text-white transition-colors"
+            >
+              ← Dashboard
             </Link>
           </div>
         </div>
+
+        {/* Period Tabs */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          {PERIODS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setPeriod(p.id)}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                p.id === period 
+                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20" 
+                  : "border border-slate-700 bg-slate-800/50 text-slate-400 hover:text-white hover:border-slate-600"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        
+        {lastUpdate && (
+          <div className="mt-3 text-xs text-slate-500 font-mono">
+            🔄 Cập nhật: {lastUpdate} • {periodRange}
+          </div>
+        )}
       </header>
 
-      <section className="mb-4 flex flex-wrap gap-2">
-        {PERIODS.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => setPeriod(p.id)}
-            className={`rounded-lg px-3 py-1.5 text-sm ${
-              p.id === period ? "brand-btn text-white" : "subtle-btn text-slate-200"
-            }`}
-          >
-            {p.label}
-          </button>
-        ))}
-      </section>
-      {lastUpdate ? <p className="mb-2 text-xs text-slate-400">Cập nhật gần nhất: {lastUpdate}</p> : null}
-
-      {loading && <p className="text-sm text-slate-300">Đang tải dữ liệu...</p>}
-      {err && <p className="text-sm text-down">{err}</p>}
+      {loading && !data && (
+        <div className="flex items-center justify-center py-20">
+          <div className="text-slate-500 text-lg">Đang tải dữ liệu...</div>
+        </div>
+      )}
+      
+      {err && (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 mb-6">
+          <p className="text-rose-400">{err}</p>
+        </div>
+      )}
 
       {data && (
-        <div className="grid gap-6">
-          <p className="text-xs text-slate-400">Dữ liệu gần nhất theo bộ lọc: {periodRange}</p>
-          <section className="grid gap-3 md:grid-cols-4">
-            <div className="rounded-xl border border-line/70 bg-surface/35 p-3">
-              <div className="text-xs text-muted">Giá đóng cửa gần nhất</div>
-              <div className="mt-1 font-mono text-lg text-white" title={formatNumberVn(latest?.close)}>
-                {formatStockPrice(latest?.close)}
-              </div>
-            </div>
-            <div className="rounded-xl border border-line/70 bg-surface/35 p-3">
-              <div className="text-xs text-muted">Biến động kỳ</div>
-              <div className={`mt-1 font-mono text-lg ${data.stats.period_change_pct >= 0 ? "text-up" : "text-down"}`}>
-                {formatPercent(data.stats.period_change_pct)}
-              </div>
-            </div>
-            <div className="rounded-xl border border-line/70 bg-surface/35 p-3">
-              <div className="text-xs text-muted">Khối lượng trung bình</div>
-              <div className="mt-1 font-mono text-lg text-white" title={formatNumberVn(data.stats.avg_volume)}>
-                {formatCompactVn(data.stats.avg_volume)}
-              </div>
-            </div>
-            <div className="rounded-xl border border-line/70 bg-surface/35 p-3">
-              <div className="text-xs text-muted">Độ biến động năm hoá</div>
-              <div className="mt-1 font-mono text-lg text-white">{formatPercent(data.stats.volatility_pct)}</div>
-            </div>
-          </section>
+        <div className="space-y-6">
+          {/* Key Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard 
+              label="Giá hiện tại" 
+              value={formatStockPrice(latest?.close)}
+              subtext={`Vol: ${formatCompactVn(latest?.volume ?? 0)}`}
+              trend={data.stats.period_change_pct / 100}
+            />
+            <StatCard 
+              label="Biến động kỳ" 
+              value={formatPercent(data.stats.period_change_pct)}
+              trend={data.stats.period_change_pct / 100}
+            />
+            <StatCard 
+              label="Khối lượng TB" 
+              value={formatCompactVn(data.stats.avg_volume)}
+              subtext={`Total: ${formatCompactVn(data.stats.total_volume)}`}
+            />
+            <StatCard 
+              label="Độ biến động" 
+              value={formatPercent(data.stats.volatility_pct)}
+              subtext={data.stats.volatility_pct > 30 ? "Cao - Cẩn trọng" : data.stats.volatility_pct < 15 ? "Thấp - Ổn định" : "Trung bình"}
+            />
+          </div>
 
-          <PriceChart
-            points={data.points}
-            maSeries={data.indicators.ma_series}
-            maLabel={`MA${data.indicators.ma_period}: ${formatStockPrice(data.indicators.ma_value)}`}
-          />
-          <VolumeBars points={data.points} />
+          {/* Charts */}
+          <div className="space-y-4">
+            <PriceChart 
+              points={data.points} 
+              maSeries={data.indicators.ma_series}
+              support={data.forecast.support_level}
+              resistance={data.forecast.resistance_level}
+            />
+            <VolumeBars points={data.points} />
+          </div>
 
-          <section className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-xl border border-line/70 bg-surface/35 p-4">
-              <h2 className="text-base font-bold text-white">Chỉ báo kỹ thuật</h2>
-              <div className="mt-3 space-y-2 text-sm">
-                {rows.map((r) => (
-                  <div key={r.key} className="rounded-lg border border-line/60 bg-surface/35 p-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-100">{r.key}</span>
-                      <span className={`font-mono ${toneClass(r.tone)}`}>{r.value}</span>
-                    </div>
-                    <p className={`mt-1 text-xs ${toneClass(r.tone)}`}>{r.note}</p>
+          {/* Technical Indicators & Forecast */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Technical Analysis */}
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                📊 Chỉ báo kỹ thuật
+              </h2>
+              <div className="space-y-3">
+                <TechnicalIndicator 
+                  name={`MA${data.indicators.ma_period}`}
+                  value={formatStockPrice(data.indicators.ma_value)}
+                  signal={getMASignal(latest?.close ?? 0, data.indicators.ma_value)}
+                />
+                <TechnicalIndicator 
+                  name="RSI(14)"
+                  value={data.indicators.rsi14?.toFixed(2) ?? "—"}
+                  signal={getRSISignal(data.indicators.rsi14)}
+                />
+                <TechnicalIndicator 
+                  name="MACD"
+                  value={`${formatStockDelta(data.indicators.macd ?? 0)} / ${formatStockDelta(data.indicators.signal9 ?? 0)}`}
+                  signal={getMACDSignal(data.indicators.macd, data.indicators.signal9)}
+                />
+                <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3 mt-4">
+                  <div className="text-xs text-slate-500 mb-2">Tổng hợp tín hiệu</div>
+                  <div className={`text-sm font-medium ${
+                    trendAlignment > 0 ? "text-emerald-400" : 
+                    trendAlignment < 0 ? "text-rose-400" : "text-slate-400"
+                  }`}>
+                    {trendAlignment > 0 ? "🟢 Xu hướng tích cực - Cân nhắc tích lũy" : 
+                     trendAlignment < 0 ? "🔴 Xu hướng tiêu cực - Thận trọng quan sát" : 
+                     "⚪ Tín hiệu trung lập - Chờ xác nhận"}
                   </div>
-                ))}
-              </div>
-              <div className="mt-3 space-y-1 text-xs text-slate-300">
-                {indicatorInsights(data).map((line) => (
-                  <p key={line}>• {line}</p>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-xl border border-line/70 bg-surface/35 p-4">
-              <h2 className="text-base font-bold text-white">Dự báo xu hướng</h2>
-              <div className="mt-3 grid gap-2 text-sm">
-                <div>
-                  Phiên kế tiếp:{" "}
-                  <span className="font-mono text-white" title={formatNumberVn(data.forecast.next_session)}>
-                    {formatStockPrice(data.forecast.next_session)}
-                  </span>
-                </div>
-                <div>
-                  Cuối kỳ ({data.forecast.horizon_sessions} phiên):{" "}
-                  <span className="font-mono text-white" title={formatNumberVn(data.forecast.horizon_end)}>
-                    {formatStockPrice(data.forecast.horizon_end)}
-                  </span>
-                </div>
-                <div>
-                  Độ dốc/phiên: <span className="font-mono">{formatStockDelta(data.forecast.slope_per_session)}</span>
-                </div>
-                <div>
-                  Độ tin cậy:{" "}
-                  <span
-                    className={`font-semibold uppercase ${
-                      data.forecast.confidence === "high"
-                        ? "text-up"
-                        : data.forecast.confidence === "low"
-                          ? "text-down"
-                          : "text-slate-300"
-                    }`}
-                  >
-                    {data.forecast.confidence}
-                  </span>
-                </div>
-                <div className="mt-2 space-y-1">
-                  {analyses.map((a, idx) => (
-                    <p key={`ana-${idx}`} className={`text-xs ${toneClass(a.tone)}`}>
-                      • {a.text}
-                    </p>
-                  ))}
                 </div>
               </div>
             </div>
-          </section>
 
-          <section className="rounded-xl border border-line/70 bg-surface/35 p-4">
-            <h2 className="text-base font-bold text-white">Thống kê dự báo theo kỳ</h2>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[680px] text-sm">
+            {/* Forecast Scenarios */}
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  🔮 Dự báo đa kịch bản
+                </h2>
+                <span className={`text-xs font-mono px-2 py-1 rounded ${
+                  data.forecast.confidence === "high" ? "bg-emerald-500/20 text-emerald-400" :
+                  data.forecast.confidence === "medium" ? "bg-blue-500/20 text-blue-400" :
+                  "bg-rose-500/20 text-rose-400"
+                }`}>
+                  Độ tin cậy: {data.forecast.confidence.toUpperCase()}
+                </span>
+              </div>
+              
+              <div className="space-y-3">
+                {data.forecast.scenarios?.map((scenario) => (
+                  <ScenarioCard 
+                    key={scenario.name} 
+                    scenario={scenario} 
+                    currentPrice={latest?.close ?? 0}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-4 p-3 rounded-lg border border-slate-700/50 bg-slate-800/30">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500">Phiên kế tiếp (dự báo):</span>
+                  <span className="font-mono text-white font-bold">{formatStockPrice(data.forecast.next_session)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm mt-1">
+                  <span className="text-slate-500">Xu hướng/phiên:</span>
+                  <span className={`font-mono ${data.forecast.slope_per_session >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    {data.forecast.slope_per_session >= 0 ? "+" : ""}{formatStockDelta(data.forecast.slope_per_session)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Multi-Period Forecast Table */}
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 overflow-hidden">
+            <h2 className="text-lg font-bold text-white mb-4">📋 Dự báo theo các kỳ</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px] text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-muted">
-                    <th className="pb-2">Kỳ lọc</th>
-                    <th className="pb-2">Biến động kỳ</th>
-                    <th className="pb-2">Phiên kế tiếp</th>
-                    <th className="pb-2">Cuối kỳ dự báo</th>
-                    <th className="pb-2">Độ dốc/phiên</th>
-                    <th className="pb-2">Tin cậy</th>
+                  <tr className="text-left border-b border-slate-700">
+                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider">Kỳ</th>
+                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider">Biến động</th>
+                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider">Dự báo phiên sau</th>
+                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider">Mục tiêu cuối kỳ</th>
+                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider">Độ dốc</th>
+                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider">Tin cậy</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-800">
                   {PERIODS.map((p) => {
                     const row = allPeriods[p.id];
+                    if (!row) return (
+                      <tr key={p.id}>
+                        <td className="py-3 text-slate-400">{p.label}</td>
+                        <td colSpan={5} className="py-3 text-slate-600 text-xs">Đang tải...</td>
+                      </tr>
+                    );
+                    const lastPrice = row.points[row.points.length - 1]?.close ?? 0;
+                    const isUp = row.stats.period_change_pct >= 0;
+                    const isForecastUp = row.forecast.horizon_end >= lastPrice;
+                    const slopeUp = row.forecast.slope_per_session >= 0;
+                    
                     return (
-                      <tr key={`forecast-${p.id}`} className="border-t border-line/60">
-                        <td className="py-2 font-semibold text-slate-100">{p.label}</td>
-                        <td className={`py-2 ${row && row.stats.period_change_pct >= 0 ? "text-up" : "text-down"}`}>
-                          {row ? formatPercent(row.stats.period_change_pct) : "—"}
+                      <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
+                        <td className="py-3 font-semibold text-white">{p.label}</td>
+                        <td className={`py-3 font-mono ${isUp ? "text-emerald-400" : "text-rose-400"}`}>
+                          {formatPercent(row.stats.period_change_pct)}
                         </td>
-                        <td className="py-2 font-mono">{row ? formatStockPrice(row.forecast.next_session) : "—"}</td>
-                        <td className={`py-2 font-mono ${row && row.forecast.horizon_end >= row.points[row.points.length - 1].close ? "text-up" : "text-down"}`}>
-                          {row ? formatStockPrice(row.forecast.horizon_end) : "—"}
+                        <td className="py-3 font-mono text-white">
+                          {formatStockPrice(row.forecast.next_session)}
                         </td>
-                        <td className={`py-2 font-mono ${row && row.forecast.slope_per_session >= 0 ? "text-up" : "text-down"}`}>
-                          {row ? formatStockDelta(row.forecast.slope_per_session) : "—"}
+                        <td className={`py-3 font-mono ${isForecastUp ? "text-emerald-400" : "text-rose-400"}`}>
+                          {formatStockPrice(row.forecast.horizon_end)}
                         </td>
-                        <td
-                          className={`py-2 uppercase ${
-                            row
-                              ? row.forecast.confidence === "high"
-                                ? "text-up"
-                                : row.forecast.confidence === "low"
-                                  ? "text-down"
-                                  : "text-slate-300"
-                              : "text-slate-400"
-                          }`}
-                        >
-                          {row ? row.forecast.confidence : "—"}
+                        <td className={`py-3 font-mono ${slopeUp ? "text-emerald-400" : "text-rose-400"}`}>
+                          {slopeUp ? "+" : ""}{formatStockDelta(row.forecast.slope_per_session)}
+                        </td>
+                        <td className="py-3">
+                          <span className={`text-xs font-medium ${
+                            row.forecast.confidence === "high" ? "text-emerald-400" :
+                            row.forecast.confidence === "medium" ? "text-blue-400" :
+                            "text-rose-400"
+                          }`}>
+                            {row.forecast.confidence.toUpperCase()}
+                          </span>
                         </td>
                       </tr>
                     );
@@ -628,7 +756,7 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
                 </tbody>
               </table>
             </div>
-          </section>
+          </div>
         </div>
       )}
     </main>
