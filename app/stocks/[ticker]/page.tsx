@@ -151,11 +151,15 @@ function getMASignal(price: number, ma: number | null): "buy" | "sell" | "neutra
 function TechnicalIndicator({ 
   name, 
   value, 
-  signal 
+  signal,
+  detail,
+  highlight
 }: { 
   name: string; 
   value: string; 
   signal: "buy" | "sell" | "neutral";
+  detail?: string;
+  highlight?: string;
 }) {
   const signalColors = {
     buy: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
@@ -170,14 +174,20 @@ function TechnicalIndicator({
   };
 
   return (
-    <div className={`rounded-lg border border-slate-700/50 bg-slate-800/50 p-3 flex items-center justify-between`}>
-      <div>
+    <div className={`rounded-lg border border-slate-700/50 bg-slate-800/50 p-3`}>
+      <div className="flex items-center justify-between mb-1">
         <div className="text-xs text-slate-500">{name}</div>
-        <div className="text-lg font-mono text-white font-bold">{value}</div>
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${signalColors[signal]}`}>
+          {signalLabels[signal]}
+        </span>
       </div>
-      <span className={`text-[10px] font-bold px-2 py-1 rounded ${signalColors[signal]}`}>
-        {signalLabels[signal]}
-      </span>
+      <div className="text-lg font-mono text-white font-bold">{value}</div>
+      {highlight && (
+        <div className="text-xs text-blue-400 mt-1 font-medium">{highlight}</div>
+      )}
+      {detail && (
+        <div className="text-xs text-slate-500 mt-1 leading-relaxed">{detail}</div>
+      )}
     </div>
   );
 }
@@ -217,6 +227,92 @@ function toneClass(tone: Tone) {
   if (tone === "good") return "text-emerald-400";
   if (tone === "warn") return "text-rose-400";
   return "text-slate-400";
+}
+
+type NewsItem = {
+  id: string;
+  title: string;
+  source: string;
+  date: string;
+  sentiment: "positive" | "negative" | "neutral";
+  summary: string;
+};
+
+function NewsSection({ symbol }: { symbol: string }) {
+  // Mock news data - in production, fetch from API
+  const newsItems: NewsItem[] = [
+    {
+      id: "1",
+      title: `${symbol} công bố kết quả kinh doanh quý mới`,
+      source: "VnExpress",
+      date: "2 giờ trước",
+      sentiment: "positive",
+      summary: "Doanh thu tăng trưởng 15% so với cùng kỳ, vượt kỳ vọng thị trường. Biên lợi nhuận cải thiện nhờ tối ưu chi phí."
+    },
+    {
+      id: "2",
+      title: `Thị trường ngành của ${symbol} đối mặt thách thức`,
+      source: "CafeF",
+      date: "5 giờ trước",
+      sentiment: "negative",
+      summary: "Áp lực cạnh tranh tăng từ đối thủ nước ngoài. Cần theo dõi khả năng duy trì thị phần trong quý tới."
+    },
+    {
+      id: "3",
+      title: `Cập nhật triển vọng cổ phiếu ${symbol}`,
+      source: " Vietstock",
+      date: "1 ngày trước",
+      sentiment: "neutral",
+      summary: "Giá cổ phiếu đang giao dịch tại vùng hợp lý. Định giá P/E tương đương trung bình ngành."
+    }
+  ];
+
+  const sentimentColors = {
+    positive: "border-l-emerald-500 bg-emerald-500/5",
+    negative: "border-l-rose-500 bg-rose-500/5",
+    neutral: "border-l-blue-500 bg-blue-500/5"
+  };
+
+  const sentimentLabels = {
+    positive: "🟢 Tích cực",
+    negative: "🔴 Tiêu cực",
+    neutral: "🔵 Trung lập"
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          📰 Tin tức doanh nghiệp
+        </h2>
+        <span className="text-xs text-slate-500">{symbol}</span>
+      </div>
+      
+      <div className="space-y-3">
+        {newsItems.map((news) => (
+          <div key={news.id} className={`p-3 rounded-lg border-l-2 ${sentimentColors[news.sentiment]} bg-slate-800/30`}>
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="text-sm font-medium text-slate-200 flex-1">{news.title}</h3>
+              <span className="text-[10px] text-slate-500 whitespace-nowrap">{news.date}</span>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-slate-500">{news.source}</span>
+              <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700/50">
+                {sentimentLabels[news.sentiment]}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">{news.summary}</p>
+          </div>
+        ))}
+      </div>
+      
+      <div className="mt-4 text-center">
+        <button className="text-xs text-slate-500 hover:text-white transition-colors">
+          Xem thêm tin tức →
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function PriceChart({
@@ -620,29 +716,83 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
             <VolumeBars points={data.points} />
           </div>
 
-          {/* Technical Indicators & Forecast */}
-          <div className="grid md:grid-cols-2 gap-6">
+          {/* Technical Indicators, Forecast & News */}
+          <div className="grid md:grid-cols-3 gap-6">
             {/* Technical Analysis */}
             <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                 📊 Chỉ báo kỹ thuật
               </h2>
               <div className="space-y-3">
-                <TechnicalIndicator 
-                  name={`MA${data.indicators.ma_period}`}
-                  value={formatStockPrice(data.indicators.ma_value)}
-                  signal={getMASignal(latest?.close ?? 0, data.indicators.ma_value)}
-                />
-                <TechnicalIndicator 
-                  name="RSI(14)"
-                  value={data.indicators.rsi14?.toFixed(2) ?? "—"}
-                  signal={getRSISignal(data.indicators.rsi14)}
-                />
-                <TechnicalIndicator 
-                  name="MACD"
-                  value={`${formatStockDelta(data.indicators.macd ?? 0)} / ${formatStockDelta(data.indicators.signal9 ?? 0)}`}
-                  signal={getMACDSignal(data.indicators.macd, data.indicators.signal9)}
-                />
+                {(() => {
+                  const maValue = data.indicators.ma_value;
+                  const currentPrice = latest?.close ?? 0;
+                  const maDiff = maValue ? ((currentPrice - maValue) / maValue) * 100 : 0;
+                  const maHighlight = maValue ? 
+                    (maDiff > 2 ? `Giá cao hơn MA ${formatPercent(maDiff)} → Xu hướng tăng` :
+                     maDiff < -2 ? `Giá thấp hơn MA ${formatPercent(Math.abs(maDiff))} → Xu hướng giảm` :
+                     `Giá gần MA ±${formatPercent(Math.abs(maDiff))} → Sideway`) : "";
+                  
+                  return (
+                    <TechnicalIndicator 
+                      name={`MA${data.indicators.ma_period}`}
+                      value={formatStockPrice(data.indicators.ma_value)}
+                      signal={getMASignal(currentPrice, data.indicators.ma_value)}
+                      highlight={maHighlight}
+                      detail={maValue ? 
+                        `Đường MA${data.indicators.ma_period} đóng vai trò ${currentPrice > maValue ? "hỗ trợ động" : "kháng cự động"}. ` +
+                        `Xu hướng ${Math.abs(maDiff) > 5 ? "mạnh" : "trung bình"} khi giá ${currentPrice > maValue ? "vượt" : "dưới"} MA.` 
+                        : "Chưa có dữ liệu MA"
+                      }
+                    />
+                  );
+                })()}
+                
+                {(() => {
+                  const rsi = data.indicators.rsi14;
+                  let rsiDetail = "";
+                  if (rsi !== null) {
+                    if (rsi <= 30) rsiDetail = `RSI ở vùng quá bán (${rsi.toFixed(1)}). Khả năng hồi phục cao nếu có tín hiệu xác nhận.`;
+                    else if (rsi >= 70) rsiDetail = `RSI ở vùng quá mua (${rsi.toFixed(1)}). Cẩn trọng điều chỉnh kỹ thuật.`;
+                    else if (rsi > 50) rsiDetail = `RSI trên 50 (${rsi.toFixed(1)}) cho thấy áp lực mua nhẹ.`;
+                    else rsiDetail = `RSI dưới 50 (${rsi.toFixed(1)}) cho thấy áp lực bán nhẹ.`;
+                  }
+                  
+                  return (
+                    <TechnicalIndicator 
+                      name="RSI(14)"
+                      value={data.indicators.rsi14?.toFixed(2) ?? "—"}
+                      signal={getRSISignal(data.indicators.rsi14)}
+                      detail={rsiDetail}
+                    />
+                  );
+                })()}
+                
+                {(() => {
+                  const macd = data.indicators.macd;
+                  const signal9 = data.indicators.signal9;
+                  let macdDetail = "";
+                  if (macd !== null && signal9 !== null) {
+                    const diff = macd - signal9;
+                    if (diff > 0) {
+                      macdDetail = `MACD (${macd.toFixed(3)}) trên Signal (${signal9.toFixed(3)}) → Histogram dương. `;
+                      macdDetail += macd > 0 ? "Cả 2 đường trên 0 → Xu hướng tăng mạnh." : "MACD dưới 0 → Hồi phục kỹ thuật.";
+                    } else {
+                      macdDetail = `MACD (${macd.toFixed(3)}) dưới Signal (${signal9.toFixed(3)}) → Histogram âm. `;
+                      macdDetail += macd < 0 ? "Cả 2 đường dưới 0 → Xu hướng giảm mạnh." : "MACD trên 0 → Điều chỉnh nhẹ.";
+                    }
+                  }
+                  
+                  return (
+                    <TechnicalIndicator 
+                      name="MACD"
+                      value={`${formatStockDelta(data.indicators.macd ?? 0)} / ${formatStockDelta(data.indicators.signal9 ?? 0)}`}
+                      signal={getMACDSignal(data.indicators.macd, data.indicators.signal9)}
+                      detail={macdDetail}
+                    />
+                  );
+                })()}
+                
                 <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3 mt-4">
                   <div className="text-xs text-slate-500 mb-2">Tổng hợp tín hiệu</div>
                   <div className={`text-sm font-medium ${
@@ -653,6 +803,9 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
                      trendAlignment < 0 ? "🔴 Xu hướng tiêu cực - Thận trọng quan sát" : 
                      "⚪ Tín hiệu trung lập - Chờ xác nhận"}
                   </div>
+                  <div className="text-xs text-slate-500 mt-2">
+                    Độ mạnh xu hướng: {Math.round(data.forecast.trend_strength * 100)}%
+                  </div>
                 </div>
               </div>
             </div>
@@ -661,14 +814,14 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
             <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  🔮 Dự báo đa kịch bản
+                  🔮 Dự báo {PERIODS.find(p => p.id === period)?.label}
                 </h2>
                 <span className={`text-xs font-mono px-2 py-1 rounded ${
                   data.forecast.confidence === "high" ? "bg-emerald-500/20 text-emerald-400" :
                   data.forecast.confidence === "medium" ? "bg-blue-500/20 text-blue-400" :
                   "bg-rose-500/20 text-rose-400"
                 }`}>
-                  Độ tin cậy: {data.forecast.confidence.toUpperCase()}
+                  {data.forecast.confidence.toUpperCase()}
                 </span>
               </div>
               
@@ -684,32 +837,43 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
 
               <div className="mt-4 p-3 rounded-lg border border-slate-700/50 bg-slate-800/30">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">Phiên kế tiếp (dự báo):</span>
+                  <span className="text-slate-500">Phiên kế tiếp:</span>
                   <span className="font-mono text-white font-bold">{formatStockPrice(data.forecast.next_session)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm mt-1">
-                  <span className="text-slate-500">Xu hướng/phiên:</span>
+                  <span className="text-slate-500">Độ dốc/phiên:</span>
                   <span className={`font-mono ${data.forecast.slope_per_session >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                     {data.forecast.slope_per_session >= 0 ? "+" : ""}{formatStockDelta(data.forecast.slope_per_session)}
                   </span>
                 </div>
+                <div className="flex items-center justify-between text-sm mt-1">
+                  <span className="text-slate-500">Support/Resistance:</span>
+                  <span className="font-mono text-slate-400 text-xs">
+                    {formatStockPrice(data.forecast.support_level)} / {formatStockPrice(data.forecast.resistance_level)}
+                  </span>
+                </div>
               </div>
             </div>
+
+            {/* News Section */}
+            <NewsSection symbol={ticker} />
           </div>
 
           {/* Multi-Period Forecast Table */}
           <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 overflow-hidden">
-            <h2 className="text-lg font-bold text-white mb-4">📋 Dự báo theo các kỳ</h2>
+            <h2 className="text-lg font-bold text-white mb-4">📋 Dự báo chi tiết theo các kỳ</h2>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[700px] text-sm">
+              <table className="w-full min-w-[900px] text-sm">
                 <thead>
                   <tr className="text-left border-b border-slate-700">
                     <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider">Kỳ</th>
-                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider">Biến động</th>
-                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider">Dự báo phiên sau</th>
-                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider">Mục tiêu cuối kỳ</th>
-                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider">Độ dốc</th>
-                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider">Tin cậy</th>
+                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider text-right">Giá gần nhất</th>
+                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider text-right">Biến động</th>
+                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider text-right">🐂 Bull</th>
+                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider text-right">📊 Base</th>
+                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider text-right">🐻 Bear</th>
+                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider text-center">Xác suất</th>
+                    <th className="pb-3 text-xs text-slate-500 uppercase tracking-wider text-center">Độ tin cậy</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -718,43 +882,127 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
                     if (!row) return (
                       <tr key={p.id}>
                         <td className="py-3 text-slate-400">{p.label}</td>
-                        <td colSpan={5} className="py-3 text-slate-600 text-xs">Đang tải...</td>
+                        <td colSpan={7} className="py-3 text-slate-600 text-xs text-center">Đang tải dữ liệu...</td>
                       </tr>
                     );
                     const lastPrice = row.points[row.points.length - 1]?.close ?? 0;
+                    const firstPrice = row.points[0]?.close ?? lastPrice;
                     const isUp = row.stats.period_change_pct >= 0;
-                    const isForecastUp = row.forecast.horizon_end >= lastPrice;
-                    const slopeUp = row.forecast.slope_per_session >= 0;
+                    
+                    // Get scenarios
+                    const bullScenario = row.forecast.scenarios?.find(s => s.name === "bull");
+                    const baseScenario = row.forecast.scenarios?.find(s => s.name === "base");
+                    const bearScenario = row.forecast.scenarios?.find(s => s.name === "bear");
+                    
+                    // Determine dominant scenario
+                    const maxProb = Math.max(
+                      bullScenario?.probability ?? 0,
+                      baseScenario?.probability ?? 0,
+                      bearScenario?.probability ?? 0
+                    );
+                    const dominantScenario = 
+                      maxProb === (bullScenario?.probability ?? 0) ? "bull" :
+                      maxProb === (baseScenario?.probability ?? 0) ? "base" : "bear";
                     
                     return (
-                      <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
-                        <td className="py-3 font-semibold text-white">{p.label}</td>
-                        <td className={`py-3 font-mono ${isUp ? "text-emerald-400" : "text-rose-400"}`}>
-                          {formatPercent(row.stats.period_change_pct)}
-                        </td>
-                        <td className="py-3 font-mono text-white">
-                          {formatStockPrice(row.forecast.next_session)}
-                        </td>
-                        <td className={`py-3 font-mono ${isForecastUp ? "text-emerald-400" : "text-rose-400"}`}>
-                          {formatStockPrice(row.forecast.horizon_end)}
-                        </td>
-                        <td className={`py-3 font-mono ${slopeUp ? "text-emerald-400" : "text-rose-400"}`}>
-                          {slopeUp ? "+" : ""}{formatStockDelta(row.forecast.slope_per_session)}
-                        </td>
+                      <tr key={p.id} className={`hover:bg-slate-800/30 transition-colors ${
+                        p.id === period ? "bg-slate-800/50" : ""
+                      }`}>
                         <td className="py-3">
-                          <span className={`text-xs font-medium ${
-                            row.forecast.confidence === "high" ? "text-emerald-400" :
-                            row.forecast.confidence === "medium" ? "text-blue-400" :
-                            "text-rose-400"
+                          <span className="font-semibold text-white">{p.label}</span>
+                          {p.id === period && (
+                            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Đang xem</span>
+                          )}
+                        </td>
+                        <td className="py-3 font-mono text-white text-right">
+                          {formatStockPrice(lastPrice)}
+                        </td>
+                        <td className={`py-3 font-mono text-right ${isUp ? "text-emerald-400" : "text-rose-400"}`}>
+                          <div>{formatPercent(row.stats.period_change_pct)}</div>
+                          <div className="text-[10px] text-slate-500">
+                            {formatStockPrice(firstPrice)} → {formatStockPrice(lastPrice)}
+                          </div>
+                        </td>
+                        <td className="py-3 font-mono text-right">
+                          {bullScenario ? (
+                            <div>
+                              <div className="text-emerald-400">{formatStockPrice(bullScenario.price)}</div>
+                              <div className="text-[10px] text-emerald-500/70">+{formatPercent((bullScenario.price - lastPrice) / lastPrice * 100)}</div>
+                            </div>
+                          ) : "—"}
+                        </td>
+                        <td className="py-3 font-mono text-right">
+                          {baseScenario ? (
+                            <div>
+                              <div className="text-blue-400">{formatStockPrice(baseScenario.price)}</div>
+                              <div className="text-[10px] text-slate-500">
+                                {((baseScenario.price - lastPrice) / lastPrice * 100) >= 0 ? "+" : ""}
+                                {formatPercent((baseScenario.price - lastPrice) / lastPrice * 100)}
+                              </div>
+                            </div>
+                          ) : "—"}
+                        </td>
+                        <td className="py-3 font-mono text-right">
+                          {bearScenario ? (
+                            <div>
+                              <div className="text-rose-400">{formatStockPrice(bearScenario.price)}</div>
+                              <div className="text-[10px] text-rose-500/70">{formatPercent((bearScenario.price - lastPrice) / lastPrice * 100)}</div>
+                            </div>
+                          ) : "—"}
+                        </td>
+                        <td className="py-3 text-center">
+                          <div className="flex items-center justify-center gap-1 text-[10px]">
+                            {bullScenario && (
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">{bullScenario.probability}%</span>
+                            )}
+                            {baseScenario && (
+                              <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">{baseScenario.probability}%</span>
+                            )}
+                            {bearScenario && (
+                              <span className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400">{bearScenario.probability}%</span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-500 mt-1">
+                            Chủ đạo: {dominantScenario === "bull" ? "🐂" : dominantScenario === "base" ? "📊" : "🐻"}
+                          </div>
+                        </td>
+                        <td className="py-3 text-center">
+                          <span className={`text-xs font-medium px-2 py-1 rounded ${
+                            row.forecast.confidence === "high" ? "bg-emerald-500/20 text-emerald-400" :
+                            row.forecast.confidence === "medium" ? "bg-blue-500/20 text-blue-400" :
+                            "bg-rose-500/20 text-rose-400"
                           }`}>
                             {row.forecast.confidence.toUpperCase()}
                           </span>
+                          <div className="text-[10px] text-slate-500 mt-1">
+                            Độ mạnh: {Math.round(row.forecast.trend_strength * 100)}%
+                          </div>
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
+            </div>
+            
+            {/* Summary Stats */}
+            <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-slate-500 text-xs">Cao nhất kỳ:</span>
+                <div className="font-mono text-white">{formatStockPrice(data.stats.high)}</div>
+              </div>
+              <div>
+                <span className="text-slate-500 text-xs">Thấp nhất kỳ:</span>
+                <div className="font-mono text-white">{formatStockPrice(data.stats.low)}</div>
+              </div>
+              <div>
+                <span className="text-slate-500 text-xs">Trung bình:</span>
+                <div className="font-mono text-white">{formatStockPrice(data.stats.avg_close)}</div>
+              </div>
+              <div>
+                <span className="text-slate-500 text-xs">Tổng khối lượng:</span>
+                <div className="font-mono text-white">{formatCompactVn(data.stats.total_volume)}</div>
+              </div>
             </div>
           </div>
         </div>
