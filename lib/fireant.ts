@@ -2,7 +2,7 @@ import type { Quote } from "./types";
 
 const FIREANT_BASE = "https://www.fireant.vn/api";
 
-function parseFireantMarketData(data: unknown, sym: string): Quote | null {
+function parseFireantQuote(data: unknown, sym: string): Quote | null {
   const root = data as {
     symbol?: string;
     price?: number;
@@ -10,25 +10,35 @@ function parseFireantMarketData(data: unknown, sym: string): Quote | null {
     percentChange?: number;
     totalVolume?: number;
     referencePrice?: number;
+    lastPrice?: number;
+    matchPrice?: number;
+    close?: number;
+    // Alternative field names from FireAnt
+    r?: number; // reference
+    c?: number; // change
+    pc?: number; // percent change
+    v?: number; // volume
+    p?: number; // price
   } | null;
 
   if (!root) return null;
 
   const symbol = String(root.symbol ?? "").toUpperCase().trim();
-  if (symbol !== sym) return null;
+  if (symbol && symbol !== sym) return null;
 
-  const price = Number(root.price);
-  const change = Number(root.change);
-  const change_pct = Number(root.percentChange);
-  const volume = Number(root.totalVolume);
-  const reference = Number(root.referencePrice);
+  // Try multiple field names that FireAnt might use
+  const price = Number(root.price ?? root.p ?? root.lastPrice ?? root.matchPrice ?? root.close ?? 0);
+  const change = Number(root.change ?? root.c ?? 0);
+  const change_pct = Number(root.percentChange ?? root.pc ?? 0);
+  const volume = Number(root.totalVolume ?? root.v ?? 0);
+  const reference = Number(root.referencePrice ?? root.r ?? (price - change));
 
   if (!Number.isFinite(price) || price <= 0) return null;
 
   return {
     symbol: sym,
     price: Math.round(price),
-    reference: Number.isFinite(reference) && reference > 0 ? Math.round(reference) : price,
+    reference: Number.isFinite(reference) && reference > 0 ? Math.round(reference) : Math.round(price - change),
     change: Number.isFinite(change) ? change : 0,
     change_pct: Number.isFinite(change_pct) ? change_pct : 0,
     volume: Number.isFinite(volume) ? Math.round(volume) : 0,
@@ -40,62 +50,43 @@ export async function fetchQuoteFromFireant(symbol: string): Promise<Quote | nul
   const sym = symbol.toUpperCase().trim();
   if (!sym) return null;
 
-  try {
-    // FireAnt Market Data API - real-time prices
-    const url = `${FIREANT_BASE}/Data/Companies/MarketData?symbol=${encodeURIComponent(sym)}`;
-    const r = await fetch(url, {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      },
-      next: { revalidate: 0 },
-      signal: AbortSignal.timeout(5_000),
-    });
+  // Try multiple FireAnt endpoints
+  const endpoints = [
+    // Stock price endpoint
+    `${FIREANT_BASE}/data/market/price?symbol=${encodeURIComponent(sym)}`,
+    // Company data
+    `${FIREANT_BASE}/data/company/${encodeURIComponent(sym)}/price`,
+    // Market watch
+    `${FIREANT_BASE}/data/market-watch/stock/${encodeURIComponent(sym)}`,
+  ];
 
-    if (!r.ok) return null;
-    const data = await r.json();
-    return parseFireantMarketData(data, sym);
-  } catch {
-    return null;
-  }
-}
+  for (const url of endpoints) {
+    try {
+      const r = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          Referer: "https://www.fireant.vn/",
+        },
+        next: { revalidate: 0 },
+        signal: AbortSignal.timeout(4_000),
+      });
 
-// Alternative: FireAnt watchlist endpoint (batch data for multiple symbols)
-export async function fetchQuotesFromFireantBatch(symbols: string[]): Promise<Record<string, Quote>> {
-  if (!symbols.length) return {};
+      if (!r.ok) continue;
 
-  try {
-    const url = `${FIREANT_BASE}/Data/Companies/MarketWatchlist`;
-    const r = await fetch(url, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      },
-      body: JSON.stringify({ symbols }),
-      next: { revalidate: 0 },
-      signal: AbortSignal.timeout(8_000),
-    });
+      const data = await r.json();
+      const q = parseFireantQuote(data, sym);
+      if (q) return q;
 
-    if (!r.ok) return {};
-
-    const data = await r.json() as Array<{
-      symbol: string;
-      price?: number;
-      change?: number;
-      percentChange?: number;
-      totalVolume?: number;
-      referencePrice?: number;
-    }>;
-
-    const result: Record<string, Quote> = {};
-    for (const item of data) {
-      const q = parseFireantMarketData(item, item.symbol.toUpperCase());
-      if (q) result[q.symbol] = q;
+      // Try if data is nested in a data property
+      if (data && typeof data === "object" && "data" in data) {
+        const nested = parseFireantQuote(data.data, sym);
+        if (nested) return nested;
+      }
+    } catch {
+      continue;
     }
-    return result;
-  } catch {
-    return {};
   }
+
+  return null;
 }
