@@ -32,7 +32,7 @@ async function yahooChartFetch(yahooId: string): Promise<unknown | null> {
         Accept: "application/json",
       },
       next: { revalidate: 0 },
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(6_000),
     });
     if (!r.ok) return null;
     return await r.json();

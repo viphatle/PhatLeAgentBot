@@ -98,7 +98,7 @@ async function fetchQuoteFromVndirect(symbol: string): Promise<Quote | null> {
         Referer: "https://online.vndirect.com.vn/",
       },
       next: { revalidate: 0 },
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!r.ok) return null;
     const data = await r.json();
@@ -179,9 +179,9 @@ export async function fetchQuote(symbol: string, opts: { mock: boolean }): Promi
 
   // Ưu tiên tốc độ: gọi song song các nguồn chính, sau đó chọn theo độ tin cậy.
   const [yahoo, tcbs, vn] = await Promise.all([
-    withTimeout(fetchQuoteFromYahoo(sym), 1800),
-    withTimeout(fetchQuoteFromTcbs(sym), 2200),
-    withTimeout(fetchQuoteFromVndirect(sym), 2200),
+    withTimeout(fetchQuoteFromYahoo(sym), 1_200),
+    withTimeout(fetchQuoteFromTcbs(sym), 1_500),
+    withTimeout(fetchQuoteFromVndirect(sym), 1_500),
   ]);
   if (yahoo) return yahoo;
   if (tcbs) return tcbs;

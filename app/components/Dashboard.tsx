@@ -93,7 +93,7 @@ export function Dashboard() {
   useEffect(() => {
     if (!items.length) return;
     void loadQuotes(items);
-    const t = setInterval(() => void loadQuotes(items), 5_000);
+    const t = setInterval(() => void loadQuotes(items), 2_000);
     return () => clearInterval(t);
   }, [items, loadQuotes]);
 
