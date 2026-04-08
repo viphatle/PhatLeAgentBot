@@ -14,6 +14,7 @@ export function Dashboard() {
   const [sessionLabel, setSessionLabel] = useState("");
   const [storageOk, setStorageOk] = useState(true);
   const [lastQuoteUpdate, setLastQuoteUpdate] = useState<string>("");
+  const [mockPricesEnabled, setMockPricesEnabled] = useState(false);
 
   const refreshList = useCallback(async () => {
     try {
@@ -34,6 +35,17 @@ export function Dashboard() {
       setStorageOk(j.storage_ready !== false);
     } catch {
       // When health endpoint is temporarily unreachable, avoid crashing UI.
+    }
+  }, []);
+
+  const checkMockPrices = useCallback(async () => {
+    try {
+      const r = await fetch("/api/config/telegram");
+      if (!r.ok) return;
+      const j = (await r.json()) as { mock_prices?: boolean };
+      setMockPricesEnabled(j.mock_prices === true);
+    } catch {
+      // Ignore errors
     }
   }, []);
 
@@ -88,7 +100,8 @@ export function Dashboard() {
   useEffect(() => {
     void refreshList();
     void refreshHealth();
-  }, [refreshList, refreshHealth]);
+    void checkMockPrices();
+  }, [refreshList, refreshHealth, checkMockPrices]);
 
   useEffect(() => {
     if (!items.length) return;
@@ -101,6 +114,11 @@ export function Dashboard() {
     const t = setInterval(() => void refreshHealth(), 60_000);
     return () => clearInterval(t);
   }, [refreshHealth]);
+
+  useEffect(() => {
+    const t = setInterval(() => void checkMockPrices(), 30_000);
+    return () => clearInterval(t);
+  }, [checkMockPrices]);
 
   const onDelete = useCallback(async (id: string) => {
     const r = await fetch("/api/stocks", {
@@ -149,9 +167,19 @@ export function Dashboard() {
 
         {/* Status Bar */}
         <div className="mt-4 flex flex-wrap items-center gap-3">
+          {mockPricesEnabled && (
+            <a 
+              href="/settings"
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer"
+              title="Click để tắt giá giả lập trong Settings"
+            >
+              ⚠️ Giá giả lập đang bật
+              <span className="text-[10px] opacity-75">(Tắt)</span>
+            </a>
+          )}
           {!storageOk && (
             <span className="inline-flex rounded-full border border-rose-500/50 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-400">
-              ⚠ Redis not connected
+              ⚠️ Redis not connected
             </span>
           )}
           {lastQuoteUpdate && (
