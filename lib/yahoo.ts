@@ -24,7 +24,9 @@ function num(v: unknown): number {
 }
 
 async function yahooChartFetch(yahooId: string): Promise<unknown | null> {
-  const url = `${CHART}/${encodeURIComponent(yahooId)}?interval=1d&range=5d`;
+  // Use 1m interval with 1d range for more accurate real-time data
+  // Include pre/post market data to get latest available price
+  const url = `${CHART}/${encodeURIComponent(yahooId)}?interval=1m&range=1d&includePrePost=true`;
   try {
     const r = await fetch(url, {
       headers: {
