@@ -6,6 +6,7 @@ import { LogoutButton } from "./LogoutButton";
 import { ScheduleBoard } from "./ScheduleBoard";
 import type { QuoteView } from "./StockTicker";
 import { StockTickerList } from "./StockTicker";
+import { NewsFeed } from "./NewsFeed";
 
 export function Dashboard() {
   const [items, setItems] = useState<WatchItem[]>([]);
@@ -218,6 +219,59 @@ export function Dashboard() {
           loadingIds={loading}
           onDelete={onDelete}
         />
+      </section>
+
+      {/* News Feed - Two column layout */}
+      <section className="mb-8">
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Main News Feed */}
+          <div className="lg:col-span-2">
+            <NewsFeed />
+          </div>
+          
+          {/* Quick Stats / Mini Schedule */}
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+              <h3 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Tin nóng gần đây
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-start gap-2 text-xs">
+                  <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">💰</span>
+                  <span className="text-slate-400">Fed báo hiệu cắt giảm lãi suất từ quý 3/2026</span>
+                </div>
+                <div className="flex items-start gap-2 text-xs">
+                  <span className="px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400">🪙</span>
+                  <span className="text-slate-400">Bitcoin vượt 95.000 USD nhờ mua vào từ tổ chức</span>
+                </div>
+                <div className="flex items-start gap-2 text-xs">
+                  <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">💻</span>
+                  <span className="text-slate-400">Apple ra mắt tính năng AI cho iPhone 17</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Market Hours */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+              <h3 className="text-sm font-bold text-slate-200 mb-3">🕐 Giờ giao dịch</h3>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">HOSE</span>
+                  <span className="text-emerald-400">09:00 - 14:45</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">HNX</span>
+                  <span className="text-emerald-400">09:00 - 14:45</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">UPCOM</span>
+                  <span className="text-emerald-400">09:00 - 14:45</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Schedule */}
