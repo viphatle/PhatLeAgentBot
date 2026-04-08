@@ -258,37 +258,49 @@ function computeIndicators(
   };
 }
 
-function computeForecast(points: HistoryPoint[], horizonSessions: number): Forecast {
+function computeForecast(
+  points: HistoryPoint[],
+  horizonSessions: number,
+  currentPrice?: number | null,
+  previousForecast?: Forecast | null
+): Forecast {
   const closes = points.map((p) => p.close);
   const n = closes.length;
-  const last = closes[n - 1];
+  const lastClose = points[n - 1]?.close ?? 0;
   
-  // Calculate support and resistance from recent price action
-  const recentCloses = closes.slice(-20);
-  const recentHigh = Math.max(...recentCloses);
-  const recentLow = Math.min(...recentCloses);
-  const supportLevel = recentLow * 0.995;
-  const resistanceLevel = recentHigh * 1.005;
+  // Use real-time price as anchor if available and reasonable
+  const anchorPrice = currentPrice && currentPrice > 0 && Math.abs(currentPrice - lastClose) / lastClose < 0.1 
+    ? currentPrice 
+    : lastClose;
+  
+  // Price momentum: how much has price moved since last close
+  const priceMomentum = anchorPrice > 0 && lastClose > 0 
+    ? (anchorPrice - lastClose) / lastClose 
+    : 0;
   
   if (n < 5) {
-    const baseScenario: ForecastScenario = {
-      name: "base",
-      price: last,
-      probability: 100,
-      description: "Không đủ dữ liệu để dự báo",
-    };
     return {
-      next_session: last,
-      horizon_end: last,
+      next_session: anchorPrice,
+      horizon_end: anchorPrice,
       horizon_sessions: horizonSessions,
       slope_per_session: 0,
       confidence: "low",
-      scenarios: [baseScenario],
+      scenarios: [],
       trend_strength: 0,
-      support_level: supportLevel,
-      resistance_level: resistanceLevel,
+      support_level: anchorPrice * 0.95,
+      resistance_level: anchorPrice * 1.05,
     };
   }
+
+  // Define anchor and support/resistance levels based on historical data
+  const last = anchorPrice;
+  const historicalMax = Math.max(...closes);
+  const historicalMin = Math.min(...closes);
+  const max = Math.max(historicalMax, last * 1.02);
+  const min = Math.min(historicalMin, last * 0.98);
+  const range = Math.max(max - min, last * 0.01);
+  const supportLevel = min + range * 0.15;
+  const resistanceLevel = max - range * 0.15;
 
   // Weighted linear regression (more weight on recent data)
   const lookback = Math.min(n - 1, 30);
@@ -319,42 +331,97 @@ function computeForecast(points: HistoryPoint[], horizonSessions: number): Forec
   const volatility = stdDev(returns);
   const trendStrength = Math.abs(slope) / (volatility * last + 0.001);
   
-  // Base forecast
-  const horizonBase = Math.max(0, last + slope * horizonSessions);
+  // Base forecast - adjusted by current momentum
+  const momentumAdjustedSlope = slope + (priceMomentum * last * 0.3 / horizonSessions);
+  const rawBase = Math.max(0, last + momentumAdjustedSlope * horizonSessions);
+  
+  // Limit adjustment from previous forecast if available (continuity)
+  const maxAdjustment = last * 0.03; // Max 3% change per update
+  let horizonBase = rawBase;
+  if (previousForecast?.horizon_end) {
+    const prevBase = previousForecast.horizon_end;
+    const diff = rawBase - prevBase;
+    if (Math.abs(diff) > maxAdjustment) {
+      horizonBase = prevBase + (diff > 0 ? maxAdjustment : -maxAdjustment);
+    }
+  }
   
   // Multi-scenario analysis - ensure consistent ordering: bear < base < bull
   const volatilityFactor = volatility * last * Math.sqrt(horizonSessions);
   
-  // Bull scenario: base + upward adjustment (always higher than base)
-  const bullAdjustment = Math.abs(slope) * horizonSessions * 0.5 + volatilityFactor * 1.2;
-  const bullPrice = Math.max(
-    horizonBase * 1.02,  // At least 2% above base
-    Math.min(resistanceLevel, horizonBase + bullAdjustment)
+  // Trend persistence factor: strong trends tend to continue
+  const trendPersistence = Math.min(0.8, trendStrength * 0.3);
+  const adjustedSlope = momentumAdjustedSlope * (1 + trendPersistence);
+  
+  // Bull scenario: base + upward adjustment with continuity limit
+  const bullAdjustment = Math.abs(adjustedSlope) * horizonSessions * 0.5 + volatilityFactor * 1.2;
+  let bullPrice = Math.max(
+    horizonBase * 1.03,  // At least 3% above base
+    Math.min(resistanceLevel * 1.02, horizonBase + bullAdjustment)
   );
   
-  // Bear scenario: base - downward adjustment (always lower than base)
-  const bearAdjustment = Math.abs(slope) * horizonSessions * 0.5 + volatilityFactor * 1.2;
-  const bearPrice = Math.min(
-    horizonBase * 0.98,  // At least 2% below base
-    Math.max(supportLevel, horizonBase - bearAdjustment)
+  // Limit bull price change for continuity
+  if (previousForecast?.scenarios) {
+    const prevBull = previousForecast.scenarios.find(s => s.name === "bull")?.price;
+    if (prevBull) {
+      const maxBullChange = last * 0.05; // Max 5% change per update
+      const bullDiff = bullPrice - prevBull;
+      if (Math.abs(bullDiff) > maxBullChange) {
+        bullPrice = prevBull + (bullDiff > 0 ? maxBullChange : -maxBullChange);
+      }
+    }
+  }
+  
+  // Bear scenario: base - downward adjustment with continuity limit
+  const bearAdjustment = Math.abs(adjustedSlope) * horizonSessions * 0.5 + volatilityFactor * 1.2;
+  let bearPrice = Math.min(
+    horizonBase * 0.97,  // At least 3% below base
+    Math.max(supportLevel * 0.98, horizonBase - bearAdjustment)
   );
   
-  // Calculate probabilities based on trend direction
-  let bullProb: number;
-  let bearProb: number;
+  // Limit bear price change for continuity
+  if (previousForecast?.scenarios) {
+    const prevBear = previousForecast.scenarios.find(s => s.name === "bear")?.price;
+    if (prevBear) {
+      const maxBearChange = last * 0.05;
+      const bearDiff = bearPrice - prevBear;
+      if (Math.abs(bearDiff) > maxBearChange) {
+        bearPrice = prevBear + (bearDiff > 0 ? maxBearChange : -maxBearChange);
+      }
+    }
+  }
   
-  if (slope > 0) {
+  // Calculate probabilities based on trend direction with smoothing
+  let rawBullProb: number;
+  let rawBearProb: number;
+  
+  // Factor in current momentum
+  const momentumBias = priceMomentum * 100; // Convert to percentage points
+  
+  if (adjustedSlope > 0) {
     // Uptrend: higher probability for bull
-    bullProb = Math.min(45, 30 + trendStrength * 8);
-    bearProb = Math.max(15, 20 - trendStrength * 5);
-  } else if (slope < 0) {
+    rawBullProb = Math.min(50, 30 + trendStrength * 8 + momentumBias * 0.5);
+    rawBearProb = Math.max(10, 20 - trendStrength * 5 - momentumBias * 0.3);
+  } else if (adjustedSlope < 0) {
     // Downtrend: higher probability for bear
-    bullProb = Math.max(15, 20 - trendStrength * 5);
-    bearProb = Math.min(45, 30 + trendStrength * 8);
+    rawBullProb = Math.max(10, 20 - trendStrength * 5 + momentumBias * 0.3);
+    rawBearProb = Math.min(50, 30 + trendStrength * 8 - momentumBias * 0.5);
   } else {
     // Sideway: balanced
-    bullProb = 25;
-    bearProb = 25;
+    rawBullProb = 25 + momentumBias * 0.5;
+    rawBearProb = 25 - momentumBias * 0.5;
+  }
+  
+  // Smooth probabilities with previous forecast (EMA-style)
+  const alpha = 0.3; // Smoothing factor
+  let bullProb = rawBullProb;
+  let bearProb = rawBearProb;
+  
+  if (previousForecast?.scenarios) {
+    const prevBullProb = previousForecast.scenarios.find(s => s.name === "bull")?.probability ?? 25;
+    const prevBearProb = previousForecast.scenarios.find(s => s.name === "bear")?.probability ?? 25;
+    bullProb = prevBullProb * (1 - alpha) + rawBullProb * alpha;
+    bearProb = prevBearProb * (1 - alpha) + rawBearProb * alpha;
   }
   
   // Base scenario (most likely)
@@ -397,9 +464,18 @@ function computeForecast(points: HistoryPoint[], horizonSessions: number): Forec
     confidence = "medium";
   }
   
-  // Next session forecast with mean reversion adjustment
+  // Next session forecast with mean reversion and momentum
   const meanReversion = (yMean - last) * 0.1;
-  const nextSession = Math.max(0, last + slope * 0.7 + meanReversion * 0.3);
+  let nextSession = Math.max(0, last + momentumAdjustedSlope * 0.7 + meanReversion * 0.3);
+  
+  // Limit next session change for continuity
+  if (previousForecast?.next_session) {
+    const maxNextChange = last * 0.02; // Max 2% intraday change
+    const nextDiff = nextSession - previousForecast.next_session;
+    if (Math.abs(nextDiff) > maxNextChange) {
+      nextSession = previousForecast.next_session + (nextDiff > 0 ? maxNextChange : -maxNextChange);
+    }
+  }
 
   return {
     next_session: nextSession,
@@ -494,7 +570,12 @@ async function fetchVndirectHistory(symbol: string, period: HistoryPeriod): Prom
   }
 }
 
-export async function fetchHistoryWithStats(symbol: string, period: HistoryPeriod): Promise<HistoryResult | null> {
+export async function fetchHistoryWithStats(
+  symbol: string, 
+  period: HistoryPeriod,
+  currentPrice?: number | null,
+  previousForecast?: Forecast | null
+): Promise<HistoryResult | null> {
   const sym = symbol.toUpperCase().trim();
   if (!sym) return null;
   const cfg = toPeriodConfig(period);
@@ -506,7 +587,7 @@ export async function fetchHistoryWithStats(symbol: string, period: HistoryPerio
 
   const stats = computeStats(points);
   const indicators = computeIndicators(allPoints, points, period);
-  const forecast = computeForecast(points, cfg.horizonSessions);
+  const forecast = computeForecast(points, cfg.horizonSessions, currentPrice, previousForecast);
 
   return {
     symbol: sym,

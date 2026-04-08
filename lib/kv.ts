@@ -1,10 +1,12 @@
 import { createClient } from "redis";
 import type { AppSettings, ScheduleEvent, WatchItem } from "./types";
+import type { Forecast, HistoryPeriod } from "./history";
 
 const WATCHLIST_KEY = "st:watchlist";
 const SETTINGS_KEY = "st:settings";
 const SCHEDULE_EVENTS_KEY = "st:schedule-events";
 const PNL_ALERT_PREFIX = "st:pnl-alert:";
+const FORECAST_PREFIX = "st:forecast:";
 
 const defaultSettings = (): AppSettings => ({
   telegram_bot_token: "",
@@ -144,4 +146,19 @@ export async function getPnlAlertState(symbol: string): Promise<PnlAlertState | 
 export async function setPnlAlertState(symbol: string, value: PnlAlertState) {
   if (!hasRedisConfig()) return;
   await kvSet(`${PNL_ALERT_PREFIX}${symbol.toUpperCase().trim()}`, value);
+}
+
+export async function getForecast(symbol: string, period: HistoryPeriod): Promise<Forecast | null> {
+  if (!hasRedisConfig()) return null;
+  return kvGet<Forecast>(`${FORECAST_PREFIX}${symbol.toUpperCase().trim()}:${period}`);
+}
+
+export async function setForecast(symbol: string, period: HistoryPeriod, value: Forecast) {
+  if (!hasRedisConfig()) return;
+  // Store forecast with timestamp for freshness check
+  const forecastWithMeta = {
+    ...value,
+    _timestamp: Date.now(),
+  };
+  await kvSet(`${FORECAST_PREFIX}${symbol.toUpperCase().trim()}:${period}`, forecastWithMeta);
 }
