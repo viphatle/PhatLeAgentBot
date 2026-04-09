@@ -202,9 +202,18 @@ export function UserManager() {
   };
 
   const changeUserRole = async (id: string, newRole: UserRole) => {
+    console.log(`[UserManager] Changing role for ${id} to ${newRole}`);
+    const userToUpdate = users.find(u => u.id === id);
+    if (!userToUpdate) {
+      setError("Không tìm thấy người dùng");
+      return;
+    }
+    
     const updatedUsers = users.map(u => 
       u.id === id ? { ...u, role: newRole } : u
     );
+    
+    console.log(`[UserManager] Updated users:`, updatedUsers);
     await saveUsers(updatedUsers);
   };
 
@@ -520,18 +529,28 @@ export function UserManager() {
                         </td>
                         <td className="py-3">
                           {canManageUsers ? (
-                            <select
-                              value={user.role}
-                              onChange={(e) => changeUserRole(user.id, e.target.value as UserRole)}
-                              disabled={user.id === currentUser?.id && user.role === "admin"}
-                              className="px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
-                            >
-                              <option value="viewer">Người xem</option>
-                              <option value="manager">Quản lý</option>
-                              {isAdmin && <option value="admin">Quản trị viên</option>}
-                            </select>
+                            <div className="relative">
+                              <select
+                                value={user.role}
+                                onChange={(e) => {
+                                  const newRole = e.target.value as UserRole;
+                                  console.log(`[UserManager] Selected: ${newRole}`);
+                                  changeUserRole(user.id, newRole);
+                                }}
+                                disabled={user.id === currentUser?.id && user.role === "admin"}
+                                className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                style={{ minWidth: '140px' }}
+                              >
+                                <option value="viewer">👤 Người xem</option>
+                                <option value="manager">🔷 Quản lý</option>
+                                {isAdmin && <option value="admin">🔴 Quản trị viên</option>}
+                              </select>
+                              {user.id === currentUser?.id && user.role === "admin" && (
+                                <span className="text-xs text-slate-500 mt-1 block">Không thể tự hạ quyền</span>
+                              )}
+                            </div>
                           ) : (
-                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs text-white ${getRoleLabel(user.role).color}`}>
+                            <span className={`inline-flex items-center px-3 py-2 rounded-lg text-sm text-white ${getRoleLabel(user.role).color}`}>
                               {getRoleLabel(user.role).label}
                             </span>
                           )}
