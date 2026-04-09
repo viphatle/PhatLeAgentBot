@@ -60,7 +60,14 @@ export function NewsFeed() {
       if (!res.ok) throw new Error("Failed to fetch");
       
       const data = await res.json();
-      setNews(data.news || []);
+      // Client-side dedupe as extra safety
+      const seenIds = new Set<string>();
+      const uniqueNews = (data.news || []).filter((item: NewsItem) => {
+        if (seenIds.has(item.id)) return false;
+        seenIds.add(item.id);
+        return true;
+      });
+      setNews(uniqueNews);
       setLastUpdate(new Date().toLocaleTimeString("vi-VN"));
       setError(null);
     } catch (err) {

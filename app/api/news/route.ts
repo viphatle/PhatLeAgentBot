@@ -177,13 +177,43 @@ export async function GET(request: Request) {
     // Wait for all with overall timeout
     await Promise.all(fetchPromises);
     
-    // Sort by date (newest first) and dedupe by URL
-    const seen = new Set<string>();
+    // Deduplicate by URL (normalized) and title similarity
+    const seenUrls = new Set<string>();
+    const seenTitles = new Set<string>();
+    
     const uniqueNews = allNews
       .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
       .filter(item => {
-        if (seen.has(item.url)) return false;
-        seen.add(item.url);
+        // Normalize URL for dedupe (remove trailing slash, query params)
+        const normalizedUrl = item.url
+          .replace(/\/$/, '')
+          .replace(/\?.*$/, '')
+          .toLowerCase();
+        
+        // Normalize title for dedupe (lowercase, remove extra spaces)
+        const normalizedTitle = item.title
+          .toLowerCase()
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 50); // Compare first 50 chars
+        
+        // Check URL duplicate
+        if (seenUrls.has(normalizedUrl)) {
+          console.log(`[News dedupe] URL duplicate: ${item.title.slice(0, 30)}...`);
+          return false;
+        }
+        
+        // Check title similarity (same article from different sources)
+        const seenTitlesArray = Array.from(seenTitles);
+        for (const seenTitle of seenTitlesArray) {
+          if (normalizedTitle.includes(seenTitle) || seenTitle.includes(normalizedTitle)) {
+            console.log(`[News dedupe] Title similar: ${item.title.slice(0, 30)}...`);
+            return false;
+          }
+        }
+        
+        seenUrls.add(normalizedUrl);
+        seenTitles.add(normalizedTitle);
         return true;
       })
       .slice(0, 10);
