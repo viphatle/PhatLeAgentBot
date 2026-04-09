@@ -257,11 +257,11 @@ export function NewsFeed() {
       {/* Footer */}
       <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-500">
         <span>
-          Nguồn: CafeF • Vietstock • Bloomberg • Reuters • CoinDesk • TechCrunch
+          Nguồn RSS: CafeF • Vietstock • VnExpress • CoinDesk • CoinTelegraph • TechCrunch
         </span>
         <span className="flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          Auto-refresh 2 phút
+          Cập nhật 2 phút
         </span>
       </div>
     </section>
