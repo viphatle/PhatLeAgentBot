@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 
 export type FileItem = {
   id: string;
@@ -50,8 +50,55 @@ export function FileManager() {
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [viewPath, setViewPath] = useState<string[]>([]); // Folder navigation path
 
   const categories = ["Tài liệu", "Báo cáo", "Hợp đồng", "Hóa đơn", "Khác"];
+
+  // Group files by category for folder view
+  const groupedFiles = useMemo(() => {
+    const groups = new Map<string, { groups: Map<string, FileItem[]>; count: number }>();
+    
+    files.forEach(file => {
+      const cat = file.category || "Khác";
+      const grp = file.docGroup || "Chung";
+      
+      if (!groups.has(cat)) {
+        groups.set(cat, { groups: new Map(), count: 0 });
+      }
+      const catData = groups.get(cat)!;
+      catData.count++;
+      
+      if (!catData.groups.has(grp)) {
+        catData.groups.set(grp, []);
+      }
+      catData.groups.get(grp)!.push(file);
+    });
+    
+    return Array.from(groups.entries()).map(([category, data]) => ({
+      category,
+      groups: Array.from(data.groups.entries()).map(([name, files]) => ({
+        name,
+        files,
+        hasPrivate: files.some(f => f.visibility === "private"),
+        hasPublic: files.some(f => f.visibility === "public"),
+      })),
+      count: data.count,
+    }));
+  }, [files]);
+
+  // Get current groups when in a category
+  const currentGroups = useMemo(() => {
+    if (viewPath.length === 0) return [];
+    const category = groupedFiles.find(g => g.category === viewPath[0]);
+    return category?.groups || [];
+  }, [groupedFiles, viewPath]);
+
+  // Get current files when in a group
+  const currentFiles = useMemo(() => {
+    if (viewPath.length < 2) return [];
+    const group = currentGroups.find(g => g.name === viewPath[1]);
+    return group?.files || [];
+  }, [currentGroups, viewPath]);
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -357,74 +404,101 @@ export function FileManager() {
         </div>
       </div>
 
-      {/* Filter by DocGroup - dynamic from files */}
-      <div className="mt-4 flex items-center gap-2">
-        <span className="text-xs text-slate-500">Lọc theo nhóm:</span>
-        <select
-          value={filterGroup}
-          onChange={(e) => setFilterGroup(e.target.value)}
-          className="px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-slate-200"
+      {/* Folder View Navigation */}
+      <div className="mt-4 flex items-center gap-2 text-sm">
+        <button
+          onClick={() => setViewPath([])}
+          className={`px-2 py-1 rounded transition-colors ${viewPath.length === 0 ? "text-emerald-400 font-medium" : "text-slate-400 hover:text-slate-300"}`}
         >
-          <option value="all">Tất cả nhóm</option>
-          {Array.from(new Set(files.map(f => f.docGroup).filter(Boolean))).sort().map(group => (
-            <option key={group} value={group}>{group}</option>
-          ))}
-        </select>
-        <span className="text-xs text-slate-500 ml-2">
-          ({files.filter(f => filterGroup === "all" || f.docGroup === filterGroup).length} tệp)
+          📁 Kho tài liệu
+        </button>
+        {viewPath.map((folder, idx) => (
+          <span key={idx} className="flex items-center gap-2">
+            <span className="text-slate-600">/</span>
+            <span className={idx === viewPath.length - 1 ? "text-emerald-400 font-medium" : "text-slate-400"}>
+              {folder}
+            </span>
+          </span>
+        ))}
+        <span className="text-xs text-slate-500 ml-auto">
+          ({viewPath.length === 0 
+            ? `${groupedFiles.length} thư mục` 
+            : viewPath.length === 1 
+              ? `${currentGroups.length} nhóm • ${currentFiles.length} tệp`
+              : `${currentFiles.length} tệp`
+          })
         </span>
       </div>
 
-      {/* File List */}
-      <div className="mt-4 space-y-2">
+      {/* Folder View Content */}
+      <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {loading ? (
-          <p className="text-center text-slate-500 py-8">Đang tải...</p>
+          <p className="text-center text-slate-500 py-8 col-span-full">Đang tải...</p>
         ) : files.length === 0 ? (
-          <p className="text-center text-slate-500 py-8">
+          <p className="text-center text-slate-500 py-8 col-span-full">
             Chưa có tệp tin nào
           </p>
+        ) : viewPath.length === 0 ? (
+          // ROOT: Show Categories as folders
+          groupedFiles.map(({ category, groups, count }) => (
+            <button
+              key={category}
+              onClick={() => setViewPath([category])}
+              className="p-4 bg-slate-800/50 hover:bg-slate-800 rounded-xl border border-slate-700/50 hover:border-slate-600 transition-all text-left group"
+            >
+              <div className="text-3xl mb-2">📁</div>
+              <p className="font-medium text-slate-200 text-sm">{category}</p>
+              <p className="text-xs text-slate-500 mt-1">
+                {groups.length} nhóm • {count} tệp
+              </p>
+            </button>
+          ))
+        ) : viewPath.length === 1 ? (
+          // CATEGORY: Show Groups as subfolders
+          currentGroups.map((group) => (
+            <button
+              key={group.name}
+              onClick={() => setViewPath([...viewPath, group.name])}
+              className="p-4 bg-slate-800/50 hover:bg-slate-800 rounded-xl border border-slate-700/50 hover:border-slate-600 transition-all text-left group"
+            >
+              <div className="text-3xl mb-2">📂</div>
+              <p className="font-medium text-slate-200 text-sm truncate">{group.name}</p>
+              <p className="text-xs text-slate-500 mt-1">
+                {group.files.length} tệp
+              </p>
+              <div className="flex items-center gap-1 mt-2">
+                {group.hasPrivate && <span className="text-xs">🔒</span>}
+                {group.hasPublic && <span className="text-xs">🌐</span>}
+              </div>
+            </button>
+          ))
         ) : (
-          files
-            .filter(file => filterGroup === "all" || file.docGroup === filterGroup)
-            .map(file => (
+          // GROUP: Show files in list
+          currentFiles.map(file => (
             <div
               key={file.id}
-              className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors group"
+              className="p-3 bg-slate-800/50 hover:bg-slate-800 rounded-xl border border-slate-700/50 hover:border-slate-600 transition-all group relative"
             >
-              <div className="w-10 h-10 rounded-lg bg-slate-700 flex items-center justify-center text-xl">
-                {getFileIcon(file.type, file.name)}
+              <div className="text-2xl mb-2">{getFileIcon(file.type, file.name)}</div>
+              <p className="text-slate-200 text-xs truncate" title={file.name}>
+                {file.name}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-1">
+                {formatFileSize(file.size)}
+              </p>
+              <div className="flex items-center gap-1 mt-2">
+                {file.visibility === "private" ? (
+                  <span className="text-[10px] text-rose-400">🔒 Riêng tư</span>
+                ) : (
+                  <span className="text-[10px] text-emerald-400">🌐 Công khai</span>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-slate-200 text-sm truncate" title={file.name}>
-                  {file.name}
-                </p>
-                <p className="text-slate-500 text-xs">
-                  {formatFileSize(file.size)} • {file.category} 
-                  {file.docGroup && file.docGroup !== "Chung" && (
-                    <span className="ml-1 px-1.5 py-0.5 bg-blue-900/30 text-blue-400 rounded text-[10px]">
-                      {file.docGroup}
-                    </span>
-                  )}
-                  • {formatDate(file.uploadedAt)}
-                </p>
-                <p className="text-xs mt-0.5 flex items-center gap-1">
-                  {file.visibility === "private" ? (
-                    <span className="text-rose-400 flex items-center gap-1">
-                      <span>🔒</span>
-                      <span>Riêng tư {file.uploadedBy && `• ${file.uploadedBy.split('@')[0]}`}</span>
-                    </span>
-                  ) : (
-                    <span className="text-emerald-400 flex items-center gap-1">
-                      <span>🌐</span>
-                      <span>Công khai {file.uploadedBy && `• ${file.uploadedBy.split('@')[0]}`}</span>
-                    </span>
-                  )}
-                </p>
-              </div>
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              
+              {/* Hover actions */}
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={() => downloadFile(file)}
-                  className="p-2 rounded-lg bg-slate-700 hover:bg-emerald-600 text-slate-300 hover:text-white transition-colors"
+                  className="p-1.5 rounded bg-emerald-600/80 hover:bg-emerald-600 text-white text-xs"
                   title="Tải xuống"
                 >
                   ⬇️
@@ -432,7 +506,7 @@ export function FileManager() {
                 {(file.isOwner || file.uploadedBy === currentUser) && (
                   <button
                     onClick={() => deleteFile(file.id)}
-                    className="p-2 rounded-lg bg-slate-700 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors"
+                    className="p-1.5 rounded bg-rose-600/80 hover:bg-rose-600 text-white text-xs"
                     title="Xóa"
                   >
                     🗑️
