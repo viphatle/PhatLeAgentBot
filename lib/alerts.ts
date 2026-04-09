@@ -139,8 +139,6 @@ export async function maybeSendPnlSpikeAlert(symbol: string, quote: Quote) {
     `💹 Giá TT: <code>${quote.price.toLocaleString("vi-VN")}</code> | KL: <b>${quote.volume.toLocaleString("vi-VN")}</b>`,
     `💰 Giá mua: <code>${normalizedBuy.toLocaleString("vi-VN")}</code>`,
     `📊 ${pnlLabel}: <b>${sign}${change.toLocaleString("vi-VN")} (${sign}${pnlPct.toFixed(2)}%)</b>`,
-    "",
-    `<i>Giới hạn: ${dailyAlertCount + 1}/${MAX_ALERTS_PER_DAY} lần/ngày • Tối thiểu ${MIN_ALERT_INTERVAL_MINUTES} phút giữa các cảnh báo</i>`,
     `🕐 ${escapeHtml(vnTimeLabel())}`,
   ].join("\n");
 
