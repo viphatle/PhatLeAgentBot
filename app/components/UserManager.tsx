@@ -63,14 +63,49 @@ export function UserManager() {
 
   const fetchSettings = useCallback(async () => {
     try {
+      // Fetch auth user from login system
+      const authRes = await fetch("/api/auth/me", { cache: "no-store" });
+      let authUser = null;
+      if (authRes.ok) {
+        const authData = await authRes.json();
+        authUser = authData.user;
+      }
+
       const res = await fetch("/api/config/telegram", { cache: "no-store" });
       if (!res.ok) throw new Error("Không thể tải cấu hình");
       const data = await res.json();
-      setUsers(data.users || []);
-      if (data.current_user_id) {
-        const cu = (data.users || []).find((u: User) => u.id === data.current_user_id);
+      let userList = data.users || [];
+      
+      // If auth user exists but not in user list, auto-add them
+      if (authUser && !userList.find((u: User) => u.id === authUser.id)) {
+        const newAuthUser: User = {
+          id: authUser.id,
+          email: authUser.id,
+          name: authUser.id.split('@')[0] || authUser.id,
+          role: authUser.role === "super_admin" ? "admin" : (authUser.role as UserRole),
+          created_at: new Date().toISOString(),
+          is_active: true,
+        };
+        userList = [newAuthUser, ...userList];
+        // Auto-save the new user
+        await fetch("/api/config/telegram", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ users: userList, current_user_id: authUser.id }),
+        });
+      }
+      
+      setUsers(userList);
+      
+      // Set current user from auth system priority
+      if (authUser) {
+        const cu = userList.find((u: User) => u.id === authUser.id);
+        setCurrentUser(cu || null);
+      } else if (data.current_user_id) {
+        const cu = userList.find((u: User) => u.id === data.current_user_id);
         setCurrentUser(cu || null);
       }
+      
       // Load custom role permissions or use defaults
       if (data.role_permissions) {
         setRolePermissions(data.role_permissions);
@@ -308,21 +343,26 @@ export function UserManager() {
         </div>
       )}
 
-      {/* Debug Info */}
+      {/* Debug Info - Shows linked auth user */}
       <div className="mb-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-slate-300">👤 Tài khoản đang đăng nhập:</span>
+          <span className="text-sm font-medium text-slate-300">👤 Tài khoản đăng nhập (Auth):</span>
           {currentUser ? (
             <span className="text-sm text-emerald-400">
               {currentUser.name} ({currentUser.email}) - {getRoleLabel(currentUser.role).label}
             </span>
           ) : (
-            <span className="text-sm text-rose-400">⚠️ Chưa có tài khoản được chọn</span>
+            <span className="text-sm text-rose-400">⚠️ Chưa đăng nhập</span>
           )}
         </div>
         <div className="mt-2 text-xs text-slate-500">
           ID: {currentUser?.id || "N/A"} | Quyền quản lý: {canManageUsers ? "Có" : "Không"} | Admin: {isAdmin ? "Có" : "Không"}
         </div>
+        {currentUser && (
+          <div className="mt-1 text-xs text-emerald-500/70">
+            ✅ Đã liên kết với hệ thống đăng nhập
+          </div>
+        )}
       </div>
 
       {/* Role Info with Permission Editor */}
