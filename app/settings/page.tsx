@@ -1,5 +1,6 @@
 import { LogoutButton } from "../components/LogoutButton";
 import { TelegramSetup } from "../components/TelegramSetup";
+import { UserManager } from "../components/UserManager";
 
 export default function SettingsPage() {
   return (
@@ -18,11 +19,14 @@ export default function SettingsPage() {
           </div>
         </div>
         <p className="mt-3 text-sm text-slate-300">
-          Cấu hình Telegram và gửi báo cáo thử được đặt riêng tại trang này.
+          Cấu hình Telegram, quản lý người dùng và phân quyền truy cập.
         </p>
       </header>
 
-      <TelegramSetup />
+      <div className="space-y-6">
+        <UserManager />
+        <TelegramSetup />
+      </div>
     </main>
   );
 }

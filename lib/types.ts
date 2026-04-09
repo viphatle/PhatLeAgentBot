@@ -14,10 +14,23 @@ export type WatchItem = {
   created_at: string;
 };
 
+export type UserRole = "admin" | "manager" | "viewer";
+
+export type User = {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  created_at: string;
+  is_active: boolean;
+};
+
 export type AppSettings = {
   telegram_bot_token: string;
   telegram_chat_id: string;
   mock_prices: boolean;
+  users?: User[]; // User management
+  current_user_id?: string; // Currently logged in user
 };
 
 /** mock_demo = bật trong cài đặt */
