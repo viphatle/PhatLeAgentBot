@@ -217,109 +217,139 @@ export function FileManager() {
         </div>
       )}
 
-      {/* Upload Area */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        className={`
-          border-2 border-dashed rounded-lg p-6 text-center transition-colors
-          ${dragOver 
-            ? "border-emerald-500 bg-emerald-900/20" 
-            : "border-slate-700 hover:border-slate-600"
-          }
-        `}
-      >
-        <input
-          type="file"
-          id="file-upload"
-          onChange={handleFileSelect}
-          className="hidden"
-          disabled={uploading}
-        />
-        <label
-          htmlFor="file-upload"
-          className="cursor-pointer flex flex-col items-center gap-2"
-        >
-          <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-2xl">
-            {uploading ? "⏳" : "☁️"}
+      {/* STEP-BY-STEP UPLOAD WORKFLOW */}
+      <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50">
+        
+        {/* STEP 1: Select File */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center font-bold">1</span>
+            <span className="text-sm font-medium text-slate-300">Chọn tệp tin</span>
           </div>
-          <p className="text-slate-300 text-sm">
-            {uploading ? "Đang tải lên..." : "Kéo thả hoặc click để chọn tệp tin"}
-          </p>
-          <p className="text-slate-500 text-xs">
-            PDF, Excel, Word, Ảnh, v.v.
-          </p>
-        </label>
-      </div>
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            className={`
+              border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer
+              ${dragOver 
+                ? "border-emerald-500 bg-emerald-900/20" 
+                : "border-slate-600 hover:border-slate-500 bg-slate-800/50"
+              }
+            `}
+          >
+            <input
+              type="file"
+              id="file-upload"
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={uploading}
+            />
+            <label
+              htmlFor="file-upload"
+              className="cursor-pointer flex flex-col items-center gap-1"
+            >
+              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-xl">
+                {uploading ? "⏳" : "📁"}
+              </div>
+              <p className="text-slate-300 text-sm">
+                {uploading ? "Đang tải lên..." : "Click hoặc kéo thả file vào đây"}
+              </p>
+              <p className="text-slate-500 text-xs">PDF, Excel, Word, Ảnh (tối đa 5MB)</p>
+            </label>
+          </div>
+        </div>
 
-      {/* Category & DocGroup Selection */}
-      <div className="mt-4 grid md:grid-cols-2 gap-4">
-        {/* Category */}
-        <div>
-          <label className="text-xs text-slate-500 mb-1 block">Loại tài liệu</label>
-          <div className="flex flex-wrap gap-2">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`
-                  px-3 py-1.5 rounded-full text-xs transition-colors
-                  ${selectedCategory === cat
-                    ? "bg-emerald-600 text-white"
-                    : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                  }
-                `}
+        {/* STEP 2: Document Type & Group */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">2</span>
+            <span className="text-sm font-medium text-slate-300">Phân loại tài liệu</span>
+          </div>
+          <div className="grid md:grid-cols-2 gap-3">
+            {/* Category */}
+            <div className="bg-slate-800/50 rounded-lg p-3">
+              <label className="text-xs text-slate-500 mb-2 block">📂 Loại tài liệu</label>
+              <div className="flex flex-wrap gap-1.5">
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`
+                      px-2.5 py-1 rounded-full text-xs transition-all
+                      ${selectedCategory === cat
+                        ? "bg-emerald-600 text-white font-medium"
+                        : "bg-slate-700 text-slate-400 hover:bg-slate-600"
+                      }
+                    `}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* DocGroup */}
+            <div className="bg-slate-800/50 rounded-lg p-3">
+              <label className="text-xs text-slate-500 mb-2 block">🏷️ Nhóm tài liệu</label>
+              <select
+                value={selectedDocGroup}
+                onChange={(e) => setSelectedDocGroup(e.target.value)}
+                className="w-full px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
               >
-                {cat}
-              </button>
-            ))}
+                {docGroups.map(group => (
+                  <option key={group} value={group}>{group}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
-        {/* DocGroup */}
-        <div>
-          <label className="text-xs text-slate-500 mb-1 block">Nhóm tài liệu</label>
-          <select
-            value={selectedDocGroup}
-            onChange={(e) => setSelectedDocGroup(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
-          >
-            {docGroups.map(group => (
-              <option key={group} value={group}>{group}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+        {/* STEP 3: Visibility */}
+        <div className="mb-2">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-6 h-6 rounded-full bg-amber-600 text-white text-xs flex items-center justify-center font-bold">3</span>
+            <span className="text-sm font-medium text-slate-300">Thiết lập quyền truy cập</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => setVisibility("private")}
+              className={`
+                p-3 rounded-lg border-2 transition-all text-left
+                ${visibility === "private"
+                  ? "border-rose-500 bg-rose-900/20"
+                  : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
+                }
+              `}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">🔒</span>
+                <span className={`text-sm font-medium ${visibility === "private" ? "text-rose-400" : "text-slate-400"}`}>
+                  Riêng tư
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">Chỉ bạn mới xem được</p>
+            </button>
 
-      {/* Visibility Toggle */}
-      <div className="mt-4 flex items-center gap-4 p-3 bg-slate-800/50 rounded-lg">
-        <span className="text-sm text-slate-400">Quyền truy cập:</span>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setVisibility("private")}
-            className={`
-              px-3 py-1.5 rounded-full text-xs transition-colors flex items-center gap-1
-              ${visibility === "private"
-                ? "bg-rose-600 text-white"
-                : "bg-slate-700 text-slate-400 hover:bg-slate-600"
-              }
-            `}
-          >
-            🔒 Riêng tư (chỉ bạn)
-          </button>
-          <button
-            onClick={() => setVisibility("public")}
-            className={`
-              px-3 py-1.5 rounded-full text-xs transition-colors flex items-center gap-1
-              ${visibility === "public"
-                ? "bg-emerald-600 text-white"
-                : "bg-slate-700 text-slate-400 hover:bg-slate-600"
-              }
-            `}
-          >
-            🌐 Công khai (mọi người)
-          </button>
+            <button
+              onClick={() => setVisibility("public")}
+              className={`
+                p-3 rounded-lg border-2 transition-all text-left
+                ${visibility === "public"
+                  ? "border-emerald-500 bg-emerald-900/20"
+                  : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
+                }
+              `}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">🌐</span>
+                <span className={`text-sm font-medium ${visibility === "public" ? "text-emerald-400" : "text-slate-400"}`}>
+                  Công khai
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">Mọi người đều xem được</p>
+            </button>
+          </div>
         </div>
       </div>
 
