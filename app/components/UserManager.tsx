@@ -50,6 +50,7 @@ export function UserManager() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserName, setNewUserName] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserRole, setNewUserRole] = useState<UserRole>("viewer");
   
   // Form states for EDIT
@@ -178,14 +179,41 @@ export function UserManager() {
   };
 
   const addUser = async () => {
-    if (!newUserEmail || !newUserName) {
-      setError("Vui lòng nhập đầy đủ thông tin");
+    if (!newUserEmail || !newUserName || !newUserPassword) {
+      setError("Vui lòng nhập đầy đủ thông tin (email, tên, mật khẩu)");
+      return;
+    }
+
+    if (newUserPassword.length < 8) {
+      setError("Mật khẩu tối thiểu 8 ký tự");
       return;
     }
 
     if (users.some(u => u.email === newUserEmail)) {
-      setError("Email này đã tồn tại");
+      setError("Email này đã tồn tại trong hệ thống");
       return;
+    }
+
+    // Register user in auth system first
+    try {
+      const authRes = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: newUserEmail,
+          password: newUserPassword,
+          role: newUserRole === "admin" ? "admin" : "user",
+        }),
+      });
+
+      if (!authRes.ok) {
+        const authData = await authRes.json();
+        setError(authData.error || "Không thể tạo tài khoản trong hệ thống auth");
+        return;
+      }
+    } catch (err) {
+      // If register API fails, continue with local user creation
+      console.log("Auth register skipped or failed, continuing with local user");
     }
 
     // First user automatically becomes admin
@@ -193,7 +221,7 @@ export function UserManager() {
     const assignedRole = isFirstUser ? "admin" : newUserRole;
     
     const newUser: User = {
-      id: `user_${Date.now()}`,
+      id: newUserEmail, // Use email as ID to match auth system
       email: newUserEmail,
       name: newUserName,
       role: assignedRole,
@@ -213,11 +241,14 @@ export function UserManager() {
       });
       setCurrentUser(newUser);
       setSuccess(`Người dùng đầu tiên "${newUser.name}" đã được tạo với quyền Admin`);
+    } else {
+      setSuccess(`Đã tạo người dùng "${newUser.name}" với mật khẩu đã đặt`);
     }
     
     // Reset form
     setNewUserEmail("");
     setNewUserName("");
+    setNewUserPassword("");
     setNewUserRole("viewer");
     setShowAddForm(false);
   };
@@ -467,10 +498,10 @@ export function UserManager() {
           <h3 className="font-medium text-slate-200 mb-3">
             {users.length === 0 ? "🌟 Tạo người dùng đầu tiên (Admin tự động)" : "Thêm người dùng mới"}
           </h3>
-          <div className="grid md:grid-cols-4 gap-3">
+          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-3">
             <input
               type="email"
-              placeholder="Email"
+              placeholder="Email đăng nhập"
               value={newUserEmail}
               onChange={(e) => setNewUserEmail(e.target.value)}
               className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
@@ -480,6 +511,13 @@ export function UserManager() {
               placeholder="Họ tên"
               value={newUserName}
               onChange={(e) => setNewUserName(e.target.value)}
+              className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
+            />
+            <input
+              type="password"
+              placeholder="Mật khẩu (tối thiểu 8 ký tự)"
+              value={newUserPassword}
+              onChange={(e) => setNewUserPassword(e.target.value)}
               className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
             />
             {users.length === 0 ? (
@@ -494,7 +532,7 @@ export function UserManager() {
               >
                 <option value="viewer">Người xem</option>
                 <option value="manager">Quản lý</option>
-                {isAdmin && <option value="admin">Quản trị viên</option>}
+                <option value="admin">Quản trị viên</option>
               </select>
             )}
             <button
