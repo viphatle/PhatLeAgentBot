@@ -1,6 +1,5 @@
 import type { Quote } from "./types";
 import { fetchQuoteFromTcbs } from "./tcbs";
-import { fetchQuoteFromYahoo } from "./yahoo";
 import { fetchQuoteFromFireant } from "./fireant";
 
 const VNDIRECT = "https://finfo-api.vndirect.com.vn/v4/stock-prices";
@@ -178,17 +177,22 @@ export async function fetchQuote(symbol: string, opts: { mock: boolean }): Promi
   if (!sym || sym.length > 20) throw new Error("Mã không hợp lệ");
   if (opts.mock) return mockQuote(sym);
 
-  // Ưu tiên: FireAnt (real-time) → TCBS (nhanh) → Yahoo (ổn định) → VNDIRECT (fallback)
-  const [fireant, tcbs, yahoo] = await Promise.all([
+  // Ưu tiên REAL-TIME APIs (không dùng Yahoo vì delay lớn):
+  // 1. FireAnt (real-time WebSocket/API) - timeout 2.5s
+  // 2. TCBS (real-time) - timeout 1.5s  
+  // 3. VNDirect real-time API - timeout 2s
+  // 4. VNDirect history (fallback) - timeout 1.8s
+  const [fireant, tcbs, vndirectRt] = await Promise.all([
     withTimeout(fetchQuoteFromFireant(sym), 2_500),
     withTimeout(fetchQuoteFromTcbs(sym), 1_500),
-    withTimeout(fetchQuoteFromYahoo(sym), 1_200),
+    withTimeout(fetchQuoteFromVndirect(sym), 2_000),
   ]);
   if (fireant) return fireant;
   if (tcbs) return tcbs;
-  if (yahoo) return yahoo;
+  if (vndirectRt) return vndirectRt;
 
-  const vnHistory = await withTimeout(fetchQuoteFromVndirectHistory(sym), 1800);
+  // Fallback: VNDirect history (có thể delay 15-30 phút)
+  const vnHistory = await withTimeout(fetchQuoteFromVndirectHistory(sym), 1_800);
   if (vnHistory) return vnHistory;
 
   return null;

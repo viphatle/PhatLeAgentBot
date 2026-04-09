@@ -155,7 +155,7 @@ export function Dashboard() {
               📊 STOCK MONITOR
             </h1>
             <p className="mt-1 text-sm text-slate-400">
-              Real-time stock tracking with FireAnt • TCBS • Yahoo
+              Real-time stock tracking with FireAnt • TCBS • VNDirect
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -189,9 +189,9 @@ export function Dashboard() {
             </span>
           )}
           <span className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/80 px-3 py-1 text-xs text-slate-400">
-            <span className="text-emerald-400">●</span> FireAnt
-            <span className="text-blue-400">●</span> TCBS
-            <span className="text-slate-500">●</span> Yahoo
+            <span className="text-emerald-400">●</span> FireAnt RT
+            <span className="text-blue-400">●</span> TCBS RT
+            <span className="text-purple-400">●</span> VNDirect RT
           </span>
         </div>
       </header>
