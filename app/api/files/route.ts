@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getJsonValue, setJsonValue } from "@/lib/kv";
+import { encryptFileContent, decryptFileContent, verifyFileAccess, checkFilePermission } from "@/lib/file-security";
 
 export const dynamic = "force-dynamic";
 
@@ -10,19 +11,51 @@ export type FileItem = {
   name: string;
   size: number;
   type: string;
-  content: string; // base64
+  encrypted: string; // encrypted content
+  iv: string; // initialization vector
+  authTag: string; // GCM auth tag
   uploadedAt: string;
   category?: string;
+  uploadedBy: string; // user ID who uploaded
+  uploadSessionId?: string; // for extra security tracking
 };
 
-// GET - List all files
+// GET - List all files (requires authentication)
 export async function GET() {
   try {
-    const files = await getJsonValue<FileItem[]>(FILES_KEY) || [];
-    return NextResponse.json({ files }, {
+    // Verify authentication
+    const session = await verifyFileAccess();
+    if (!session) {
+      return NextResponse.json(
+        { error: "Vui lòng đăng nhập để xem tệp tin" },
+        { status: 401 }
+      );
+    }
+
+    const allFiles = await getJsonValue<FileItem[]>(FILES_KEY) || [];
+    
+    // Filter: show only files uploaded by this user or all if admin
+    const isAdmin = session.role === "admin" || session.role === "super_admin";
+    const visibleFiles = isAdmin 
+      ? allFiles 
+      : allFiles.filter(f => f.uploadedBy === session.uid || f.uploadSessionId === session.uid);
+    
+    // Return file metadata only (no content)
+    const fileList = visibleFiles.map(f => ({
+      id: f.id,
+      name: f.name,
+      size: f.size,
+      type: f.type,
+      uploadedAt: f.uploadedAt,
+      category: f.category,
+      uploadedBy: f.uploadedBy,
+    }));
+    
+    return NextResponse.json({ files: fileList }, {
       headers: { "Cache-Control": "no-store" }
     });
   } catch (error) {
+    console.error("File list error:", error);
     return NextResponse.json(
       { error: "Không thể lấy danh sách tệp tin" },
       { status: 500 }
@@ -30,9 +63,18 @@ export async function GET() {
   }
 }
 
-// POST - Upload new file
+// POST - Upload new file (requires authentication, encrypted storage)
 export async function POST(req: Request) {
   try {
+    // Verify authentication
+    const session = await verifyFileAccess();
+    if (!session) {
+      return NextResponse.json(
+        { error: "Vui lòng đăng nhập để tải lên tệp tin" },
+        { status: 401 }
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const category = formData.get("category") as string || "Tài liệu";
@@ -52,18 +94,25 @@ export async function POST(req: Request) {
       );
     }
 
-    // Read file as base64
+    // Read file content
     const bytes = await file.arrayBuffer();
-    const base64 = Buffer.from(bytes).toString("base64");
+    const buffer = Buffer.from(bytes);
+
+    // Encrypt file content
+    const { encrypted, iv, authTag } = encryptFileContent(buffer);
 
     const newFile: FileItem = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       name: file.name,
       size: file.size,
       type: file.type || "application/octet-stream",
-      content: base64,
+      encrypted,
+      iv,
+      authTag,
       uploadedAt: new Date().toISOString(),
       category,
+      uploadedBy: session.uid,
+      uploadSessionId: session.uid,
     };
 
     // Get existing files and add new one
@@ -86,6 +135,7 @@ export async function POST(req: Request) {
         type: newFile.type,
         uploadedAt: newFile.uploadedAt,
         category: newFile.category,
+        uploadedBy: session.uid,
       }
     });
   } catch (error) {
@@ -97,9 +147,18 @@ export async function POST(req: Request) {
   }
 }
 
-// DELETE - Remove file
+// DELETE - Remove file (requires ownership or admin)
 export async function DELETE(req: Request) {
   try {
+    // Verify authentication
+    const session = await verifyFileAccess();
+    if (!session) {
+      return NextResponse.json(
+        { error: "Vui lòng đăng nhập" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await req.json();
     
     if (!id) {
@@ -110,12 +169,32 @@ export async function DELETE(req: Request) {
     }
 
     const files = await getJsonValue<FileItem[]>(FILES_KEY) || [];
-    const updatedFiles = files.filter((f: FileItem) => f.id !== id);
+    const fileToDelete = files.find((f: FileItem) => f.id === id);
     
+    if (!fileToDelete) {
+      return NextResponse.json(
+        { error: "Tệp tin không tồn tại" },
+        { status: 404 }
+      );
+    }
+
+    // Check permission: owner or admin can delete
+    const isAdmin = session.role === "admin" || session.role === "super_admin";
+    const isOwner = fileToDelete.uploadedBy === session.uid || fileToDelete.uploadSessionId === session.uid;
+    
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json(
+        { error: "Bạn không có quyền xóa tệp tin này" },
+        { status: 403 }
+      );
+    }
+
+    const updatedFiles = files.filter((f: FileItem) => f.id !== id);
     await setJsonValue(FILES_KEY, updatedFiles);
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error("File delete error:", error);
     return NextResponse.json(
       { error: "Không thể xóa tệp tin" },
       { status: 500 }
