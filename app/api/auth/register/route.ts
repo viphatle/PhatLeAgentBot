@@ -42,10 +42,11 @@ export async function POST(req: Request) {
   const users = await getUsers();
   const firstAccount = users.length === 0;
   const allowOpenBootstrap = firstAccount;
-  const allowBySession = currentSession?.role === "super_admin";
+  // Allow super_admin or admin to create new users
+  const allowBySession = currentSession?.role === "super_admin" || currentSession?.role === "admin";
 
   if (!allowOpenBootstrap && !allowBySession) {
-    return Response.json({ error: "Chỉ super admin mới có quyền tạo tài khoản." }, { status: 403 });
+    return Response.json({ error: "Chỉ quản trị viên mới có quyền tạo tài khoản." }, { status: 403 });
   }
 
   try {

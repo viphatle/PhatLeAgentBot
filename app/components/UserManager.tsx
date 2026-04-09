@@ -200,7 +200,7 @@ export function UserManager() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: newUserEmail,
+          id: newUserEmail,
           password: newUserPassword,
           role: newUserRole === "admin" ? "admin" : "user",
         }),
