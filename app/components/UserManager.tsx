@@ -545,7 +545,8 @@ export function UserManager() {
                           </div>
                         </td>
                         <td className="py-3">
-                          {canManageUsers ? (
+                          {/* Role dropdown - disabled for self, enabled for others */}
+                          {canManageUsers && user.id !== currentUser?.id ? (
                             <div className="relative">
                               <select
                                 value={user.role}
@@ -554,21 +555,20 @@ export function UserManager() {
                                   console.log(`[UserManager] Selected: ${newRole}`);
                                   changeUserRole(user.id, newRole);
                                 }}
-                                disabled={user.id === currentUser?.id && user.role === "admin"}
-                                className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 cursor-pointer"
                                 style={{ minWidth: '140px' }}
                               >
                                 <option value="viewer">👤 Người xem</option>
                                 <option value="manager">🔷 Quản lý</option>
                                 <option value="admin">🔴 Quản trị viên</option>
                               </select>
-                              {user.id === currentUser?.id && user.role === "admin" && (
-                                <span className="text-xs text-slate-500 mt-1 block">Không thể tự hạ quyền</span>
-                              )}
                             </div>
                           ) : (
                             <span className={`inline-flex items-center px-3 py-2 rounded-lg text-sm text-white ${getRoleLabel(user.role).color}`}>
                               {getRoleLabel(user.role).label}
+                              {user.id === currentUser?.id && (
+                                <span className="ml-2 text-xs opacity-70">(không thể tự đổi)</span>
+                              )}
                             </span>
                           )}
                         </td>
