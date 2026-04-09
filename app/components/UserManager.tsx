@@ -560,7 +560,7 @@ export function UserManager() {
                               >
                                 <option value="viewer">👤 Người xem</option>
                                 <option value="manager">🔷 Quản lý</option>
-                                {isAdmin && <option value="admin">🔴 Quản trị viên</option>}
+                                <option value="admin">🔴 Quản trị viên</option>
                               </select>
                               {user.id === currentUser?.id && user.role === "admin" && (
                                 <span className="text-xs text-slate-500 mt-1 block">Không thể tự hạ quyền</span>
