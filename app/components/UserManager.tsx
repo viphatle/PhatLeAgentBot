@@ -273,6 +273,9 @@ export function UserManager() {
   // Can manage if: has admin/manager role, or no users yet (initial setup)
   const canManageUsers = !currentUser || currentUser?.role === "admin" || currentUser?.role === "manager";
   const isAdmin = currentUser?.role === "admin" || !currentUser; // First user becomes admin
+  
+  // Debug
+  console.log(`[UserManager] canManageUsers: ${canManageUsers}, isAdmin: ${isAdmin}, currentUser:`, currentUser);
 
   return (
     <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5 md:p-6">
@@ -576,30 +579,30 @@ export function UserManager() {
                             <button
                               onClick={() => switchToUser(user.id)}
                               disabled={user.id === currentUser?.id}
-                              className={`px-2 py-1 rounded text-xs transition-colors ${
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                                 user.id === currentUser?.id
-                                  ? "bg-emerald-600 text-white"
+                                  ? "bg-emerald-600 text-white cursor-default"
                                   : "bg-slate-700 hover:bg-slate-600 text-slate-300"
                               }`}
                             >
-                              {user.id === currentUser?.id ? "✓ Đang dùng" : "Chuyển"}
+                              {user.id === currentUser?.id ? "✓ Đang dùng" : "↔️ Chuyển"}
                             </button>
                             {canManageUsers && (
                               <button
                                 onClick={() => startEditUser(user)}
-                                className="px-2 py-1 rounded text-xs bg-blue-900/30 hover:bg-blue-900/50 text-blue-400 transition-colors"
+                                className="px-3 py-1.5 rounded-lg text-xs bg-blue-600 hover:bg-blue-500 text-white transition-colors font-medium flex items-center gap-1"
                                 title="Sửa thông tin"
                               >
-                                ✏️
+                                ✏️ Sửa
                               </button>
                             )}
                             {canManageUsers && user.id !== currentUser?.id && (
                               <button
                                 onClick={() => deleteUser(user.id)}
-                                className="px-2 py-1 rounded text-xs bg-rose-900/30 hover:bg-rose-900/50 text-rose-400 transition-colors"
-                                title="Xóa"
+                                className="px-3 py-1.5 rounded-lg text-xs bg-rose-600 hover:bg-rose-500 text-white transition-colors font-medium flex items-center gap-1"
+                                title="Xóa người dùng này"
                               >
-                                🗑️
+                                🗑️ Xóa
                               </button>
                             )}
                           </div>
