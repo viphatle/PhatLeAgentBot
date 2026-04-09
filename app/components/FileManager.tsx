@@ -52,7 +52,6 @@ export function FileManager() {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
 
   const categories = ["Tài liệu", "Báo cáo", "Hợp đồng", "Hóa đơn", "Khác"];
-  const docGroups = ["Chung", "Kế toán", "Nhân sự", "Kinh doanh", "Marketing", "Pháp lý", "Kỹ thuật", "Quản lý"];
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -219,94 +218,54 @@ export function FileManager() {
 
       {/* STEP-BY-STEP UPLOAD WORKFLOW */}
       <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50">
-        
-        {/* STEP 1: Select File */}
+
+        {/* STEP 1: Document Type */}
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center font-bold">1</span>
-            <span className="text-sm font-medium text-slate-300">Chọn tệp tin</span>
+            <span className="text-sm font-medium text-slate-300">Chọn phân loại tài liệu</span>
           </div>
-          <div
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            className={`
-              border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer
-              ${dragOver 
-                ? "border-emerald-500 bg-emerald-900/20" 
-                : "border-slate-600 hover:border-slate-500 bg-slate-800/50"
-              }
-            `}
-          >
-            <input
-              type="file"
-              id="file-upload"
-              onChange={handleFileSelect}
-              className="hidden"
-              disabled={uploading}
-            />
-            <label
-              htmlFor="file-upload"
-              className="cursor-pointer flex flex-col items-center gap-1"
-            >
-              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-xl">
-                {uploading ? "⏳" : "📁"}
-              </div>
-              <p className="text-slate-300 text-sm">
-                {uploading ? "Đang tải lên..." : "Click hoặc kéo thả file vào đây"}
-              </p>
-              <p className="text-slate-500 text-xs">PDF, Excel, Word, Ảnh (tối đa 5MB)</p>
-            </label>
+          <div className="bg-slate-800/50 rounded-lg p-3">
+            <div className="flex flex-wrap gap-1.5">
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`
+                    px-3 py-1.5 rounded-full text-xs transition-all
+                    ${selectedCategory === cat
+                      ? "bg-emerald-600 text-white font-medium"
+                      : "bg-slate-700 text-slate-400 hover:bg-slate-600"
+                    }
+                  `}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* STEP 2: Document Type & Group */}
+        {/* STEP 2: Custom Group Name */}
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">2</span>
-            <span className="text-sm font-medium text-slate-300">Phân loại tài liệu</span>
+            <span className="text-sm font-medium text-slate-300">Đặt tên nhóm tài liệu</span>
           </div>
-          <div className="grid md:grid-cols-2 gap-3">
-            {/* Category */}
-            <div className="bg-slate-800/50 rounded-lg p-3">
-              <label className="text-xs text-slate-500 mb-2 block">📂 Loại tài liệu</label>
-              <div className="flex flex-wrap gap-1.5">
-                {categories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`
-                      px-2.5 py-1 rounded-full text-xs transition-all
-                      ${selectedCategory === cat
-                        ? "bg-emerald-600 text-white font-medium"
-                        : "bg-slate-700 text-slate-400 hover:bg-slate-600"
-                      }
-                    `}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* DocGroup */}
-            <div className="bg-slate-800/50 rounded-lg p-3">
-              <label className="text-xs text-slate-500 mb-2 block">🏷️ Nhóm tài liệu</label>
-              <select
-                value={selectedDocGroup}
-                onChange={(e) => setSelectedDocGroup(e.target.value)}
-                className="w-full px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
-              >
-                {docGroups.map(group => (
-                  <option key={group} value={group}>{group}</option>
-                ))}
-              </select>
-            </div>
+          <div className="bg-slate-800/50 rounded-lg p-3">
+            <input
+              type="text"
+              value={selectedDocGroup}
+              onChange={(e) => setSelectedDocGroup(e.target.value)}
+              placeholder="Nhập tên nhóm (VD: Kế toán 2024, Hợp đồng Q1...)"
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+            />
+            <p className="text-xs text-slate-500 mt-1">💡 Gợi ý: Đặt tên dễ nhớ để dễ tìm kiếm sau này</p>
           </div>
         </div>
 
         {/* STEP 3: Visibility */}
-        <div className="mb-2">
+        <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="w-6 h-6 rounded-full bg-amber-600 text-white text-xs flex items-center justify-center font-bold">3</span>
             <span className="text-sm font-medium text-slate-300">Thiết lập quyền truy cập</span>
@@ -351,9 +310,54 @@ export function FileManager() {
             </button>
           </div>
         </div>
+
+        {/* STEP 4: Upload File */}
+        <div className="mb-2">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-6 h-6 rounded-full bg-purple-600 text-white text-xs flex items-center justify-center font-bold">4</span>
+            <span className="text-sm font-medium text-slate-300">Tải lên tệp tin</span>
+          </div>
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            className={`
+              border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer
+              ${dragOver
+                ? "border-purple-500 bg-purple-900/20"
+                : "border-slate-600 hover:border-slate-500 bg-slate-800/50"
+              }
+            `}
+          >
+            <input
+              type="file"
+              id="file-upload"
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={uploading}
+            />
+            <label
+              htmlFor="file-upload"
+              className="cursor-pointer flex flex-col items-center gap-1"
+            >
+              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-xl">
+                {uploading ? "⏳" : "📁"}
+              </div>
+              <p className="text-slate-300 text-sm">
+                {uploading ? "Đang tải lên..." : "Click hoặc kéo thả file vào đây"}
+              </p>
+              <p className="text-slate-500 text-xs">
+                Đã chọn: <span className="text-emerald-400">{selectedCategory}</span> •
+                Nhóm: <span className="text-blue-400">{selectedDocGroup || "Chưa đặt"}</span> •
+                Quyền: <span className={visibility === "private" ? "text-rose-400" : "text-emerald-400"}>{visibility === "private" ? "🔒 Riêng tư" : "🌐 Công khai"}</span>
+              </p>
+              <p className="text-slate-500 text-xs mt-1">PDF, Excel, Word, Ảnh (tối đa 5MB)</p>
+            </label>
+          </div>
+        </div>
       </div>
 
-      {/* Filter by DocGroup */}
+      {/* Filter by DocGroup - dynamic from files */}
       <div className="mt-4 flex items-center gap-2">
         <span className="text-xs text-slate-500">Lọc theo nhóm:</span>
         <select
@@ -362,7 +366,7 @@ export function FileManager() {
           className="px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-slate-200"
         >
           <option value="all">Tất cả nhóm</option>
-          {docGroups.map(group => (
+          {Array.from(new Set(files.map(f => f.docGroup).filter(Boolean))).sort().map(group => (
             <option key={group} value={group}>{group}</option>
           ))}
         </select>
