@@ -8,9 +8,12 @@ export type FileItem = {
   size: number;
   type: string;
   uploadedAt: string;
-  category?: string;
-  uploadedBy?: string; // Owner of the file
-  content?: string; // Only present when downloading
+  category?: string; // Loại tài liệu
+  docGroup?: string; // Nhóm tài liệu (Kế toán, Nhân sự...)
+  visibility?: "public" | "private";
+  uploadedBy?: string; // Owner
+  isOwner?: boolean;
+  content?: string;
 };
 
 const formatFileSize = (bytes: number): string => {
@@ -41,10 +44,15 @@ export function FileManager() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("Tài liệu");
+  const [selectedDocGroup, setSelectedDocGroup] = useState("Chung");
+  const [visibility, setVisibility] = useState<"public" | "private">("private");
+  const [filterGroup, setFilterGroup] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
 
   const categories = ["Tài liệu", "Báo cáo", "Hợp đồng", "Hóa đơn", "Khác"];
+  const docGroups = ["Chung", "Kế toán", "Nhân sự", "Kinh doanh", "Marketing", "Pháp lý", "Kỹ thuật", "Quản lý"];
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -54,6 +62,7 @@ export function FileManager() {
       if (!res.ok) throw new Error("Không thể tải danh sách");
       const data = await res.json();
       setFiles(data.files || []);
+      setCurrentUser(data.currentUser || null);
       setError(null);
     } catch (err) {
       setError("Không thể tải danh sách tệp tin");
@@ -79,6 +88,8 @@ export function FileManager() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("category", selectedCategory);
+      formData.append("docGroup", selectedDocGroup);
+      formData.append("visibility", visibility);
 
       const res = await fetch("/api/files", {
         method: "POST",
@@ -242,23 +253,92 @@ export function FileManager() {
         </label>
       </div>
 
-      {/* Category Selection */}
-      <div className="mt-4 flex flex-wrap gap-2">
-        {categories.map(cat => (
+      {/* Category & DocGroup Selection */}
+      <div className="mt-4 grid md:grid-cols-2 gap-4">
+        {/* Category */}
+        <div>
+          <label className="text-xs text-slate-500 mb-1 block">Loại tài liệu</label>
+          <div className="flex flex-wrap gap-2">
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`
+                  px-3 py-1.5 rounded-full text-xs transition-colors
+                  ${selectedCategory === cat
+                    ? "bg-emerald-600 text-white"
+                    : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                  }
+                `}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* DocGroup */}
+        <div>
+          <label className="text-xs text-slate-500 mb-1 block">Nhóm tài liệu</label>
+          <select
+            value={selectedDocGroup}
+            onChange={(e) => setSelectedDocGroup(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+          >
+            {docGroups.map(group => (
+              <option key={group} value={group}>{group}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Visibility Toggle */}
+      <div className="mt-4 flex items-center gap-4 p-3 bg-slate-800/50 rounded-lg">
+        <span className="text-sm text-slate-400">Quyền truy cập:</span>
+        <div className="flex gap-2">
           <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
+            onClick={() => setVisibility("private")}
             className={`
-              px-3 py-1.5 rounded-full text-xs transition-colors
-              ${selectedCategory === cat
-                ? "bg-emerald-600 text-white"
-                : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+              px-3 py-1.5 rounded-full text-xs transition-colors flex items-center gap-1
+              ${visibility === "private"
+                ? "bg-rose-600 text-white"
+                : "bg-slate-700 text-slate-400 hover:bg-slate-600"
               }
             `}
           >
-            {cat}
+            🔒 Riêng tư (chỉ bạn)
           </button>
-        ))}
+          <button
+            onClick={() => setVisibility("public")}
+            className={`
+              px-3 py-1.5 rounded-full text-xs transition-colors flex items-center gap-1
+              ${visibility === "public"
+                ? "bg-emerald-600 text-white"
+                : "bg-slate-700 text-slate-400 hover:bg-slate-600"
+              }
+            `}
+          >
+            🌐 Công khai (mọi người)
+          </button>
+        </div>
+      </div>
+
+      {/* Filter by DocGroup */}
+      <div className="mt-4 flex items-center gap-2">
+        <span className="text-xs text-slate-500">Lọc theo nhóm:</span>
+        <select
+          value={filterGroup}
+          onChange={(e) => setFilterGroup(e.target.value)}
+          className="px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-slate-200"
+        >
+          <option value="all">Tất cả nhóm</option>
+          {docGroups.map(group => (
+            <option key={group} value={group}>{group}</option>
+          ))}
+        </select>
+        <span className="text-xs text-slate-500 ml-2">
+          ({files.filter(f => filterGroup === "all" || f.docGroup === filterGroup).length} tệp)
+        </span>
       </div>
 
       {/* File List */}
@@ -270,7 +350,9 @@ export function FileManager() {
             Chưa có tệp tin nào
           </p>
         ) : (
-          files.map(file => (
+          files
+            .filter(file => filterGroup === "all" || file.docGroup === filterGroup)
+            .map(file => (
             <div
               key={file.id}
               className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors group"
@@ -283,11 +365,26 @@ export function FileManager() {
                   {file.name}
                 </p>
                 <p className="text-slate-500 text-xs">
-                  {formatFileSize(file.size)} • {file.category} • {formatDate(file.uploadedAt)}
+                  {formatFileSize(file.size)} • {file.category} 
+                  {file.docGroup && file.docGroup !== "Chung" && (
+                    <span className="ml-1 px-1.5 py-0.5 bg-blue-900/30 text-blue-400 rounded text-[10px]">
+                      {file.docGroup}
+                    </span>
+                  )}
+                  • {formatDate(file.uploadedAt)}
                 </p>
-                <p className="text-xs text-emerald-500/70 mt-0.5 flex items-center gap-1">
-                  <span>🔒</span>
-                  <span>{file.uploadedBy ? `Bảo mật • ${file.uploadedBy}` : 'Mã hóa AES-256-GCM'}</span>
+                <p className="text-xs mt-0.5 flex items-center gap-1">
+                  {file.visibility === "private" ? (
+                    <span className="text-rose-400 flex items-center gap-1">
+                      <span>🔒</span>
+                      <span>Riêng tư {file.uploadedBy && `• ${file.uploadedBy.split('@')[0]}`}</span>
+                    </span>
+                  ) : (
+                    <span className="text-emerald-400 flex items-center gap-1">
+                      <span>🌐</span>
+                      <span>Công khai {file.uploadedBy && `• ${file.uploadedBy.split('@')[0]}`}</span>
+                    </span>
+                  )}
                 </p>
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -298,13 +395,15 @@ export function FileManager() {
                 >
                   ⬇️
                 </button>
-                <button
-                  onClick={() => deleteFile(file.id)}
-                  className="p-2 rounded-lg bg-slate-700 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors"
-                  title="Xóa"
-                >
-                  🗑️
-                </button>
+                {(file.isOwner || file.uploadedBy === currentUser) && (
+                  <button
+                    onClick={() => deleteFile(file.id)}
+                    className="p-2 rounded-lg bg-slate-700 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors"
+                    title="Xóa"
+                  >
+                    🗑️
+                  </button>
+                )}
               </div>
             </div>
           ))

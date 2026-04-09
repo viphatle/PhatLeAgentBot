@@ -13,15 +13,58 @@ export type FileItem = {
   type: string;
   content: string; // base64
   uploadedAt: string;
-  category?: string;
-  uploadedBy?: string;
+  category?: string; // Document group/category
+  docGroup?: string; // Nhóm tài liệu (e.g., "Kế toán", "Nhân sự", "Kinh doanh")
+  visibility: "public" | "private"; // public = mọi người xem, private = chỉ owner
+  uploadedBy?: string; // Owner user ID
 };
 
-// GET - List all files
-export async function GET() {
+// GET - List files (filtered by visibility and user)
+export async function GET(req: Request) {
   try {
-    const files = await getJsonValue<FileItem[]>(FILES_KEY) || [];
-    return NextResponse.json({ files }, {
+    // Get current user from auth cookie
+    const cookieHeader = req.headers.get("cookie") || "";
+    const sessionMatch = cookieHeader.match(/st_session=([^;]+)/);
+    let currentUserId: string | null = null;
+    
+    if (sessionMatch) {
+      try {
+        const token = sessionMatch[1];
+        // Decode token to get user ID (simplified - in production verify properly)
+        const payload = JSON.parse(atob(token.split(".")[0]));
+        currentUserId = payload.uid || null;
+      } catch {
+        // Invalid token, treat as guest
+      }
+    }
+
+    const allFiles = await getJsonValue<FileItem[]>(FILES_KEY) || [];
+    
+    // Filter: show public files + private files owned by current user
+    const visibleFiles = allFiles.filter((file: FileItem) => {
+      if (file.visibility === "public") return true;
+      // Private files: only owner can see
+      return file.uploadedBy && file.uploadedBy === currentUserId;
+    });
+    
+    // Return file metadata only (no content)
+    const fileList = visibleFiles.map(f => ({
+      id: f.id,
+      name: f.name,
+      size: f.size,
+      type: f.type,
+      uploadedAt: f.uploadedAt,
+      category: f.category,
+      docGroup: f.docGroup,
+      visibility: f.visibility,
+      uploadedBy: f.uploadedBy,
+      isOwner: f.uploadedBy === currentUserId,
+    }));
+    
+    return NextResponse.json({ 
+      files: fileList,
+      currentUser: currentUserId 
+    }, {
       headers: { "Cache-Control": "no-store" }
     });
   } catch (error) {
@@ -38,6 +81,23 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const category = formData.get("category") as string || "Tài liệu";
+    const docGroup = formData.get("docGroup") as string || "Chung";
+    const visibility = (formData.get("visibility") as string) || "private";
+    
+    // Get current user from auth
+    const cookieHeader = req.headers.get("cookie") || "";
+    const sessionMatch = cookieHeader.match(/st_session=([^;]+)/);
+    let uploadedBy: string | undefined;
+    
+    if (sessionMatch) {
+      try {
+        const token = sessionMatch[1];
+        const payload = JSON.parse(atob(token.split(".")[0]));
+        uploadedBy = payload.uid;
+      } catch {
+        // No valid session
+      }
+    }
 
     if (!file) {
       return NextResponse.json(
@@ -66,6 +126,9 @@ export async function POST(req: Request) {
       content: base64,
       uploadedAt: new Date().toISOString(),
       category,
+      docGroup,
+      visibility: visibility === "public" ? "public" : "private",
+      uploadedBy,
     };
 
     // Get existing files and add new one
@@ -88,6 +151,9 @@ export async function POST(req: Request) {
         type: newFile.type,
         uploadedAt: newFile.uploadedAt,
         category: newFile.category,
+        docGroup: newFile.docGroup,
+        visibility: newFile.visibility,
+        uploadedBy: newFile.uploadedBy,
       }
     });
   } catch (error) {
