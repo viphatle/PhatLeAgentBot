@@ -9,6 +9,7 @@ export type FileItem = {
   type: string;
   uploadedAt: string;
   category?: string;
+  uploadedBy?: string; // Owner of the file
   content?: string; // Only present when downloading
 };
 
@@ -48,6 +49,7 @@ export function FileManager() {
   const fetchFiles = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await fetch("/api/files", { cache: "no-store" });
       if (!res.ok) throw new Error("Không thể tải danh sách");
       const data = await res.json();
@@ -178,14 +180,24 @@ export function FileManager() {
   };
 
   return (
-    <section className="bg-slate-900/50 rounded-xl p-5 border border-slate-800">
+    <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5 md:p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
-          📁 Tài liệu cá nhân
-        </h2>
-        <span className="text-xs text-slate-500">
-          {files.length}/50 tệp tin • Tối đa 5MB mỗi tệp
-        </span>
+        <div>
+          <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
+            � Kho lưu trữ bảo mật
+          </h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Tệp tin được mã hóa AES-256-GCM, chỉ bạn và admin mới có thể truy cập
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs px-2 py-1 bg-emerald-900/30 text-emerald-400 rounded border border-emerald-800">
+            🔒 Mã hóa
+          </span>
+          <span className="text-xs px-2 py-1 bg-blue-900/30 text-blue-400 rounded border border-blue-800">
+            👤 Riêng tư
+          </span>
+        </div>
       </div>
 
       {error && (
@@ -272,6 +284,10 @@ export function FileManager() {
                 </p>
                 <p className="text-slate-500 text-xs">
                   {formatFileSize(file.size)} • {file.category} • {formatDate(file.uploadedAt)}
+                </p>
+                <p className="text-xs text-emerald-500/70 mt-0.5 flex items-center gap-1">
+                  <span>🔒</span>
+                  <span>{file.uploadedBy ? `Bảo mật • ${file.uploadedBy}` : 'Mã hóa AES-256-GCM'}</span>
                 </p>
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
