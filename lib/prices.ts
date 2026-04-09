@@ -172,28 +172,66 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
   }
 }
 
+// UPCOM stocks often need special handling
+const UPCOM_FALLBACK_SOURCES = [
+  // Some UPCOM stocks are tracked on specific endpoints
+  "https://api-finfo.vndirect.com.vn/v4/stock_prices",
+];
+
 export async function fetchQuote(symbol: string, opts: { mock: boolean }): Promise<Quote | null> {
   const sym = symbol.toUpperCase().trim();
   if (!sym || sym.length > 20) throw new Error("Mã không hợp lệ");
   if (opts.mock) return mockQuote(sym);
 
-  // Ưu tiên REAL-TIME APIs (không dùng Yahoo vì delay lớn):
+  // UPCOM stocks: try VNDirect first (they have better UPCOM coverage)
+  const isUpcomGuess = sym.length >= 4; // UPCOM symbols tend to be longer
+  
+  if (isUpcomGuess) {
+    // For UPCOM-like symbols, prioritize VNDirect APIs
+    const [vndirectRt, vnHistory] = await Promise.all([
+      withTimeout(fetchQuoteFromVndirect(sym), 3_000),
+      withTimeout(fetchQuoteFromVndirectHistory(sym), 2_500),
+    ]);
+    if (vndirectRt) {
+      console.log(`[${sym}] Price from VNDirect RT (UPCOM priority)`);
+      return vndirectRt;
+    }
+    if (vnHistory) {
+      console.log(`[${sym}] Price from VNDirect History (UPCOM fallback)`);
+      return vnHistory;
+    }
+  }
+
+  // Standard flow for HOSE/HNX
   // 1. FireAnt (real-time WebSocket/API) - timeout 2.5s
   // 2. TCBS (real-time) - timeout 1.5s  
   // 3. VNDirect real-time API - timeout 2s
-  // 4. VNDirect history (fallback) - timeout 1.8s
   const [fireant, tcbs, vndirectRt] = await Promise.all([
     withTimeout(fetchQuoteFromFireant(sym), 2_500),
     withTimeout(fetchQuoteFromTcbs(sym), 1_500),
     withTimeout(fetchQuoteFromVndirect(sym), 2_000),
   ]);
-  if (fireant) return fireant;
-  if (tcbs) return tcbs;
-  if (vndirectRt) return vndirectRt;
+  
+  if (fireant) {
+    console.log(`[${sym}] Price from FireAnt`);
+    return fireant;
+  }
+  if (tcbs) {
+    console.log(`[${sym}] Price from TCBS`);
+    return tcbs;
+  }
+  if (vndirectRt) {
+    console.log(`[${sym}] Price from VNDirect RT`);
+    return vndirectRt;
+  }
 
-  // Fallback: VNDirect history (có thể delay 15-30 phút)
+  // Final fallback: VNDirect history (có thể delay 15-30 phút)
   const vnHistory = await withTimeout(fetchQuoteFromVndirectHistory(sym), 1_800);
-  if (vnHistory) return vnHistory;
+  if (vnHistory) {
+    console.log(`[${sym}] Price from VNDirect History (final fallback)`);
+    return vnHistory;
+  }
 
+  console.error(`[${sym}] Failed to fetch price from all sources`);
   return null;
 }
