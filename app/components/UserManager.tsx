@@ -83,7 +83,7 @@ export function UserManager() {
           id: authUser.id,
           email: authUser.id,
           name: authUser.id.split('@')[0] || authUser.id,
-          role: authUser.role === "super_admin" ? "admin" : (authUser.role as UserRole),
+          role: authUser.role === "super_admin" || authUser.role === "admin" ? "admin" : "viewer",
           created_at: new Date().toISOString(),
           is_active: true,
         };
@@ -202,7 +202,7 @@ export function UserManager() {
         body: JSON.stringify({
           id: newUserEmail,
           password: newUserPassword,
-          role: newUserRole === "admin" ? "admin" : "user",
+          role: newUserRole === "viewer" ? "user" : "admin", // viewer -> user, manager/admin -> admin
         }),
       });
 
