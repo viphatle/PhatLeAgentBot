@@ -1,198 +1,135 @@
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
-
 export const revalidate = 0;
 
-// News sources configuration
-const NEWS_SOURCES = {
+// Real RSS feed URLs
+const RSS_FEEDS = {
   finance: [
-    { name: "CafeF", url: "https://cafef.vn", rss: "https://cafef.vn/rss/tai-chinh-ngan-hang.rss" },
-    { name: "Vietstock", url: "https://vietstock.vn", rss: "https://vietstock.vn/rss/chung-khoan.rss" },
-    { name: "Bloomberg", url: "https://www.bloomberg.com", lang: "en" },
-    { name: "Reuters", url: "https://www.reuters.com", lang: "en" },
-  ],
-  crypto: [
-    { name: "CoinDesk", url: "https://www.coindesk.com", lang: "en" },
-    { name: "CoinTelegraph", url: "https://cointelegraph.com", lang: "en" },
-  ],
-  tech: [
-    { name: "TechCrunch", url: "https://techcrunch.com", lang: "en" },
-    { name: "The Verge", url: "https://www.theverge.com", lang: "en" },
+    { name: "CafeF", rss: "https://cafef.vn/rss/tai-chinh-ngan-hang.rss", lang: "vi" as const },
+    { name: "CafeF CK", rss: "https://cafef.vn/rss/chung-khoan.rss", lang: "vi" as const },
+    { name: "Vietstock", rss: "https://vietstock.vn/rss/chung-khoan.rss", lang: "vi" as const },
   ],
   economy: [
-    { name: "VnExpress Kinh tế", url: "https://vnexpress.net/kinh-doanh", lang: "vi" },
-    { name: "Reuters Economy", url: "https://www.reuters.com/world/", lang: "en" },
+    { name: "VnExpress Kinh doanh", rss: "https://vnexpress.net/rss/kinh-doanh.rss", lang: "vi" as const },
+    { name: "CafeF Doanh nghiệp", rss: "https://cafef.vn/rss/doanh-nghiep.rss", lang: "vi" as const },
+  ],
+  crypto: [
+    // Using CoinDesk RSS via FeedBurner
+    { name: "CoinDesk", rss: "https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml", lang: "en" as const },
+    { name: "CoinTelegraph", rss: "https://cointelegraph.com/rss", lang: "en" as const },
+  ],
+  tech: [
+    { name: "TechCrunch", rss: "https://techcrunch.com/feed/", lang: "en" as const },
   ],
 };
 
-// Types
 export type NewsCategory = "finance" | "crypto" | "tech" | "economy";
 
 export type NewsItem = {
   id: string;
   title: string;
-  titleVi?: string; // Translated title
-  summary?: string;
-  summaryVi?: string; // Translated summary
   url: string;
   source: string;
   category: NewsCategory;
   publishedAt: string;
-  imageUrl?: string;
+  summary?: string;
   lang: "vi" | "en";
 };
 
-// Mock news data generator (replace with real RSS/API fetching)
-function generateMockNews(): NewsItem[] {
-  const now = new Date();
-  const news: NewsItem[] = [
-    // Finance - Vietnam
-    {
-      id: "vn-1",
-      title: "Chứng khoán Việt Nam tăng điểm mạnh nhất khu vực ASEAN",
-      url: "https://cafef.vn/chung-khoan-vn-tang-diem.html",
-      source: "CafeF",
-      category: "finance",
-      publishedAt: new Date(now.getTime() - 5 * 60000).toISOString(),
-      lang: "vi",
-    },
-    {
-      id: "vn-2",
-      title: "Ngân hàng Nhà nước giữ nguyên lãi suất điều hành",
-      url: "https://vietstock.vn/lai-suat-dieu-hanh.html",
-      source: "Vietstock",
-      category: "finance",
-      publishedAt: new Date(now.getTime() - 15 * 60000).toISOString(),
-      lang: "vi",
-    },
-    {
-      id: "vn-3",
-      title: "Vingroup công bố kết quả kinh doanh quý 4/2025",
-      url: "https://vnexpress.net/vingroup-kqkd.html",
-      source: "VnExpress",
-      category: "economy",
-      publishedAt: new Date(now.getTime() - 30 * 60000).toISOString(),
-      lang: "vi",
-    },
-    // Finance - International
-    {
-      id: "int-1",
-      title: "Fed signals rate cuts may begin in Q3 2026",
-      titleVi: "Fed báo hiệu có thể cắt giảm lãi suất từ quý 3/2026",
-      summary: "Federal Reserve officials hinted at potential rate reductions as inflation shows signs of cooling.",
-      summaryVi: "Các quan chức Fed ám chỉ khả năng giảm lãi suất khi lạm phát có dấu hiệu hạ nhiệt.",
-      url: "https://www.bloomberg.com/news/fed-rates",
-      source: "Bloomberg",
-      category: "finance",
-      publishedAt: new Date(now.getTime() - 10 * 60000).toISOString(),
-      lang: "en",
-    },
-    {
-      id: "int-2",
-      title: "Asian markets rally on tech sector optimism",
-      titleVi: "Thị trường châu Á tăng điểm nhờ kỳ vọng ngành công nghệ",
-      summary: "Technology stocks lead gains across major Asian indexes.",
-      summaryVi: "Cổ phiếu công nghệ dẫn dắt đà tăng trên các chỉ số châu Á chính.",
-      url: "https://www.reuters.com/markets/asia",
-      source: "Reuters",
-      category: "finance",
-      publishedAt: new Date(now.getTime() - 25 * 60000).toISOString(),
-      lang: "en",
-    },
-    // Crypto
-    {
-      id: "crypto-1",
-      title: "Bitcoin surges past $95,000 amid institutional buying",
-      titleVi: "Bitcoin vượt 95.000 USD nhờ mua vào từ tổ chức",
-      summary: "Major financial institutions increase crypto allocations.",
-      summaryVi: "Các tổ chức tài chính lớn tăng tỷ trọng đầu tư crypto.",
-      url: "https://www.coindesk.com/markets/bitcoin",
-      source: "CoinDesk",
-      category: "crypto",
-      publishedAt: new Date(now.getTime() - 8 * 60000).toISOString(),
-      lang: "en",
-    },
-    {
-      id: "crypto-2",
-      title: "Ethereum 2.0 staking rewards hit record highs",
-      titleVi: "Phần thưởng staking Ethereum 2.0 đạt mức cao kỷ lục",
-      summary: "Validator rewards increase as network activity grows.",
-      summaryVi: "Phần thưởng validator tăng khi hoạt động mạng phát triển.",
-      url: "https://cointelegraph.com/ethereum",
-      source: "CoinTelegraph",
-      category: "crypto",
-      publishedAt: new Date(now.getTime() - 45 * 60000).toISOString(),
-      lang: "en",
-    },
-    {
-      id: "crypto-3",
-      title: "SEC approves new spot Ethereum ETFs",
-      titleVi: "SEC phê duyệt ETF Ethereum giao ngay mới",
-      summary: "Regulatory approval opens doors for institutional investors.",
-      summaryVi: "Phê duyệt quy định mở cửa cho nhà đầu tư tổ chức.",
-      url: "https://www.coindesk.com/policy/sec-eth-etf",
-      source: "CoinDesk",
-      category: "crypto",
-      publishedAt: new Date(now.getTime() - 60 * 60000).toISOString(),
-      lang: "en",
-    },
-    // Tech
-    {
-      id: "tech-1",
-      title: "Apple unveils AI-powered features for iPhone 17",
-      titleVi: "Apple ra mắt tính năng AI cho iPhone 17",
-      summary: "New on-device AI capabilities enhance user experience.",
-      summaryVi: "Khả năng AI trên thiết bị mới nâng cao trải nghiệm người dùng.",
-      url: "https://techcrunch.com/apple-ai-iphone",
-      source: "TechCrunch",
-      category: "tech",
-      publishedAt: new Date(now.getTime() - 20 * 60000).toISOString(),
-      lang: "en",
-    },
-    {
-      id: "tech-2",
-      title: "NVIDIA announces next-gen AI chips for data centers",
-      titleVi: "NVIDIA công bố chip AI thế hệ mới cho trung tâm dữ liệu",
-      summary: "New architecture promises 3x performance improvement.",
-      summaryVi: "Kiến trúc mới hứa hẹn cải thiện hiệu suất gấp 3 lần.",
-      url: "https://www.theverge.com/nvidia-ai-chips",
-      source: "The Verge",
-      category: "tech",
-      publishedAt: new Date(now.getTime() - 40 * 60000).toISOString(),
-      lang: "en",
-    },
-    {
-      id: "tech-3",
-      title: "OpenAI releases GPT-5 with multimodal capabilities",
-      titleVi: "OpenAI ra mắt GPT-5 với khả năng đa phương thức",
-      summary: "Latest model integrates text, image, and video understanding.",
-      summaryVi: "Mô hình mới tích hợp hiểu văn bản, hình ảnh và video.",
-      url: "https://techcrunch.com/openai-gpt5",
-      source: "TechCrunch",
-      category: "tech",
-      publishedAt: new Date(now.getTime() - 120 * 60000).toISOString(),
-      lang: "en",
-    },
-    // Economy
-    {
-      id: "econ-1",
-      title: "Global trade volumes rebound in Q1 2026",
-      titleVi: "Khối lượng thương mại toàn cầu phục hồi trong Q1/2026",
-      summary: "Supply chain normalization drives international commerce.",
-      summaryVi: "Chuỗi cung ứng bình thường hóa thúc đẩy thương mại quốc tế.",
-      url: "https://www.reuters.com/world/trade",
-      source: "Reuters",
-      category: "economy",
-      publishedAt: new Date(now.getTime() - 55 * 60000).toISOString(),
-      lang: "en",
-    },
-  ];
+// Parse RSS XML to extract items
+function parseRSS(xml: string, sourceName: string, category: NewsCategory, lang: "vi" | "en"): NewsItem[] {
+  const items: NewsItem[] = [];
+  
+  // Extract item blocks using regex
+  const itemRegex = /<item[^>]*>[\s\S]*?<\/item>/gi;
+  const itemsMatch = xml.match(itemRegex);
+  
+  if (!itemsMatch) return items;
+  
+  for (const itemXml of itemsMatch.slice(0, 5)) { // Get top 5 per source
+    // Extract title
+    const titleMatch = itemXml.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
+    const title = titleMatch ? decodeXml(titleMatch[1].trim()) : "";
+    
+    // Extract link
+    const linkMatch = itemXml.match(/<link[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/link>/i);
+    let url = linkMatch ? decodeXml(linkMatch[1].trim()) : "";
+    
+    // Some RSS use guid as link
+    if (!url) {
+      const guidMatch = itemXml.match(/<guid[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/guid>/i);
+      url = guidMatch ? decodeXml(guidMatch[1].trim()) : "";
+    }
+    
+    // Extract pubDate
+    const pubDateMatch = itemXml.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i);
+    const pubDate = pubDateMatch ? pubDateMatch[1].trim() : new Date().toISOString();
+    
+    // Extract description/summary
+    const descMatch = itemXml.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i);
+    const summary = descMatch ? cleanHtml(decodeXml(descMatch[1].trim())).slice(0, 200) : undefined;
+    
+    if (title && url) {
+      items.push({
+        id: `${sourceName}-${Buffer.from(url).toString("base64").slice(0, 12)}`,
+        title,
+        url,
+        source: sourceName,
+        category,
+        publishedAt: new Date(pubDate).toISOString(),
+        summary,
+        lang,
+      });
+    }
+  }
+  
+  return items;
+}
 
-  // Sort by published time (newest first) and take top 10
-  return news
-    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-    .slice(0, 10);
+// Decode XML entities
+function decodeXml(str: string): string {
+  return str
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
+// Clean HTML tags
+function cleanHtml(str: string): string {
+  return str
+    .replace(/<[^>]+>/g, " ") // Remove HTML tags
+    .replace(/\s+/g, " ")     // Collapse whitespace
+    .trim();
+}
+
+// Fetch RSS with timeout
+async function fetchRSS(url: string, timeoutMs = 5000): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; NewsBot/1.0)",
+        "Accept": "application/rss+xml, application/xml, text/xml",
+      },
+      signal: controller.signal,
+      next: { revalidate: 0 },
+    });
+    
+    clearTimeout(timeout);
+    
+    if (!res.ok) return null;
+    return await res.text();
+  } catch (err) {
+    console.error(`RSS fetch failed for ${url}:`, err);
+    return null;
+  }
 }
 
 // Format relative time
@@ -215,17 +152,44 @@ export async function GET(request: Request) {
   const category = searchParams.get("category") as NewsCategory | null;
 
   try {
-    // In production, fetch from real RSS/API sources
-    // For now, use mock data with realistic structure
-    const news = generateMockNews();
+    // Fetch all RSS feeds in parallel
+    const allNews: NewsItem[] = [];
     
-    // Filter by category if specified
-    const filtered = category 
-      ? news.filter(n => n.category === category)
-      : news;
+    const feedsToFetch = category 
+      ? { [category]: RSS_FEEDS[category] || [] }
+      : RSS_FEEDS;
+    
+    const fetchPromises: Promise<void>[] = [];
+    
+    for (const [cat, feeds] of Object.entries(feedsToFetch)) {
+      for (const feed of feeds) {
+        const promise = (async () => {
+          const xml = await fetchRSS(feed.rss, 6000);
+          if (xml) {
+            const items = parseRSS(xml, feed.name, cat as NewsCategory, feed.lang);
+            allNews.push(...items);
+          }
+        })();
+        fetchPromises.push(promise);
+      }
+    }
+    
+    // Wait for all with overall timeout
+    await Promise.all(fetchPromises);
+    
+    // Sort by date (newest first) and dedupe by URL
+    const seen = new Set<string>();
+    const uniqueNews = allNews
+      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+      .filter(item => {
+        if (seen.has(item.url)) return false;
+        seen.add(item.url);
+        return true;
+      })
+      .slice(0, 10);
 
-    // Add relative time formatting
-    const enriched = filtered.map(item => ({
+    // Add relative time
+    const enriched = uniqueNews.map(item => ({
       ...item,
       relativeTime: formatRelativeTime(item.publishedAt),
     }));
@@ -233,7 +197,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       news: enriched,
       lastUpdated: new Date().toISOString(),
-      sources: Object.keys(NEWS_SOURCES),
+      sourceCount: Object.values(RSS_FEEDS).flat().length,
     }, {
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate",
@@ -243,7 +207,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("News fetch error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch news" },
+      { error: "Failed to fetch news", news: [] },
       { status: 500 }
     );
   }
