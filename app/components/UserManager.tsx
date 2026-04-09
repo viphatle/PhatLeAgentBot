@@ -610,8 +610,8 @@ export function UserManager() {
                                 ✏️ Sửa
                               </button>
                             )}
-                            {/* Admin can delete any user (including current), Manager can only delete non-current */}
-                            {((isAdmin && user.id !== currentUser?.id) || (canManageUsers && !isAdmin && user.id !== currentUser?.id)) && (
+                            {/* Delete button for OTHER users */}
+                            {canManageUsers && user.id !== currentUser?.id && (
                               <button
                                 onClick={() => deleteUser(user.id)}
                                 className="px-3 py-1.5 rounded-lg text-xs bg-rose-600 hover:bg-rose-500 text-white transition-colors font-medium flex items-center gap-1"
@@ -620,15 +620,15 @@ export function UserManager() {
                                 🗑️ Xóa
                               </button>
                             )}
-                            {/* Special: Admin deleting CURRENT user (requires extra confirmation) */}
-                            {isAdmin && user.id === currentUser?.id && users.length > 1 && (
+                            {/* Delete button for CURRENT user (any manager/admin can delete themselves) */}
+                            {canManageUsers && user.id === currentUser?.id && users.length > 1 && (
                               <button
                                 onClick={() => {
                                   if (confirm("⚠️ Bạn đang xóa TÀI KHOẢN HIỆN TẠI của mình!\n\nSau khi xóa, bạn sẽ bị đăng xuất.\n\nBạn có chắc chắn muốn xóa?")) {
                                     deleteUser(user.id);
                                   }
                                 }}
-                                className="px-3 py-1.5 rounded-lg text-xs bg-rose-800 hover:bg-rose-700 text-white transition-colors font-medium flex items-center gap-1 border border-rose-500"
+                                className="px-3 py-1.5 rounded-lg text-xs bg-rose-700 hover:bg-rose-600 text-white transition-colors font-medium flex items-center gap-1 border border-rose-400"
                                 title="Xóa tài khoản hiện tại (sẽ bị đăng xuất)"
                               >
                                 🗑️ Xóa (tài khoản này)
