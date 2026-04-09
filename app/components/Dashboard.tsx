@@ -7,6 +7,7 @@ import { ScheduleBoard } from "./ScheduleBoard";
 import type { QuoteView } from "./StockTicker";
 import { StockTickerList } from "./StockTicker";
 import { NewsFeed } from "./NewsFeed";
+import { FileManager } from "./FileManager";
 
 export function Dashboard() {
   const [items, setItems] = useState<WatchItem[]>([]);
@@ -272,6 +273,11 @@ export function Dashboard() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* File Manager */}
+      <section className="mb-8">
+        <FileManager />
       </section>
 
       {/* Schedule */}
