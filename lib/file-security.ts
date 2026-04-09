@@ -2,7 +2,8 @@
 
 import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "node:crypto";
 import { cookies } from "next/headers";
-import { verifySessionFromCookie, authSecret } from "./auth";
+import { verifySessionToken } from "./session";
+import { authSecret } from "./auth";
 
 // Encryption key derived from AUTH_SECRET
 function getEncryptionKey(): Buffer {
@@ -50,7 +51,7 @@ export async function verifyFileAccess(): Promise<{ uid: string; role: string } 
   
   if (!sessionCookie) return null;
   
-  const session = await verifySessionFromCookie(sessionCookie);
+  const session = await verifySessionToken(sessionCookie, authSecret());
   if (!session) return null;
   
   return { uid: session.uid, role: session.role };
