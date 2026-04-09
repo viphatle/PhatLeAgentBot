@@ -273,9 +273,6 @@ export function UserManager() {
   // Can manage if: has admin/manager role, or no users yet (initial setup)
   const canManageUsers = !currentUser || currentUser?.role === "admin" || currentUser?.role === "manager";
   const isAdmin = currentUser?.role === "admin" || !currentUser; // First user becomes admin
-  
-  // Debug
-  console.log(`[UserManager] canManageUsers: ${canManageUsers}, isAdmin: ${isAdmin}, currentUser:`, currentUser);
 
   return (
     <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5 md:p-6">
@@ -310,6 +307,23 @@ export function UserManager() {
           ✅ {success}
         </div>
       )}
+
+      {/* Debug Info */}
+      <div className="mb-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-slate-300">👤 Tài khoản đang đăng nhập:</span>
+          {currentUser ? (
+            <span className="text-sm text-emerald-400">
+              {currentUser.name} ({currentUser.email}) - {getRoleLabel(currentUser.role).label}
+            </span>
+          ) : (
+            <span className="text-sm text-rose-400">⚠️ Chưa có tài khoản được chọn</span>
+          )}
+        </div>
+        <div className="mt-2 text-xs text-slate-500">
+          ID: {currentUser?.id || "N/A"} | Quyền quản lý: {canManageUsers ? "Có" : "Không"} | Admin: {isAdmin ? "Có" : "Không"}
+        </div>
+      </div>
 
       {/* Role Info with Permission Editor */}
       <div className="mb-4 flex items-center justify-between">
@@ -596,13 +610,28 @@ export function UserManager() {
                                 ✏️ Sửa
                               </button>
                             )}
-                            {canManageUsers && user.id !== currentUser?.id && (
+                            {/* Admin can delete any user (including current), Manager can only delete non-current */}
+                            {((isAdmin && user.id !== currentUser?.id) || (canManageUsers && !isAdmin && user.id !== currentUser?.id)) && (
                               <button
                                 onClick={() => deleteUser(user.id)}
                                 className="px-3 py-1.5 rounded-lg text-xs bg-rose-600 hover:bg-rose-500 text-white transition-colors font-medium flex items-center gap-1"
                                 title="Xóa người dùng này"
                               >
                                 🗑️ Xóa
+                              </button>
+                            )}
+                            {/* Special: Admin deleting CURRENT user (requires extra confirmation) */}
+                            {isAdmin && user.id === currentUser?.id && users.length > 1 && (
+                              <button
+                                onClick={() => {
+                                  if (confirm("⚠️ Bạn đang xóa TÀI KHOẢN HIỆN TẠI của mình!\n\nSau khi xóa, bạn sẽ bị đăng xuất.\n\nBạn có chắc chắn muốn xóa?")) {
+                                    deleteUser(user.id);
+                                  }
+                                }}
+                                className="px-3 py-1.5 rounded-lg text-xs bg-rose-800 hover:bg-rose-700 text-white transition-colors font-medium flex items-center gap-1 border border-rose-500"
+                                title="Xóa tài khoản hiện tại (sẽ bị đăng xuất)"
+                              >
+                                🗑️ Xóa (tài khoản này)
                               </button>
                             )}
                           </div>
