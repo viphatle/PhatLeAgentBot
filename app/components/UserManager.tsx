@@ -1,18 +1,41 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { User, UserRole } from "@/lib/types";
+import type { User, UserRole, Permission, RolePermissions } from "@/lib/types";
 
-const roleLabels: Record<UserRole, { label: string; color: string }> = {
+type StandardRole = "admin" | "manager" | "viewer";
+
+const roleLabels: Record<StandardRole, { label: string; color: string }> = {
   admin: { label: "Quản trị viên", color: "bg-rose-500" },
   manager: { label: "Quản lý", color: "bg-blue-500" },
   viewer: { label: "Người xem", color: "bg-slate-500" },
 };
 
-const rolePermissions: Record<UserRole, string[]> = {
-  admin: ["Xem giá", "Sửa watchlist", "Gửi Telegram", "Quản lý người dùng", "Cài đặt hệ thống"],
-  manager: ["Xem giá", "Sửa watchlist", "Gửi Telegram", "Xem lịch biểu"],
-  viewer: ["Xem giá", "Xem lịch biểu", "Xem tin tức"],
+// Safe accessor for role labels (handles custom role)
+const getRoleLabel = (role: UserRole) => {
+  if (role === "custom") return { label: "Tùy chỉnh", color: "bg-purple-500" };
+  return roleLabels[role];
+};
+
+// All available permissions
+const ALL_PERMISSIONS: { id: Permission; label: string; icon: string }[] = [
+  { id: "view_prices", label: "Xem giá chứng khoán", icon: "📈" },
+  { id: "edit_watchlist", label: "Sửa watchlist", icon: "📝" },
+  { id: "send_telegram", label: "Gửi Telegram", icon: "📨" },
+  { id: "manage_users", label: "Quản lý người dùng", icon: "👥" },
+  { id: "system_settings", label: "Cài đặt hệ thống", icon: "⚙️" },
+  { id: "view_schedule", label: "Xem lịch biểu", icon: "📅" },
+  { id: "edit_schedule", label: "Sửa lịch biểu", icon: "✏️" },
+  { id: "view_news", label: "Xem tin tức", icon: "📰" },
+  { id: "upload_files", label: "Tải lên tệp tin", icon: "📤" },
+  { id: "view_files", label: "Xem tệp tin", icon: "📁" },
+];
+
+// Default permissions for each role
+const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
+  admin: ["view_prices", "edit_watchlist", "send_telegram", "manage_users", "system_settings", "view_schedule", "edit_schedule", "view_news", "upload_files", "view_files"],
+  manager: ["view_prices", "edit_watchlist", "send_telegram", "view_schedule", "edit_schedule", "view_news", "view_files"],
+  viewer: ["view_prices", "view_schedule", "view_news", "view_files"],
 };
 
 export function UserManager() {
@@ -33,6 +56,10 @@ export function UserManager() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  
+  // Role permissions customization
+  const [rolePermissions, setRolePermissions] = useState<RolePermissions>(DEFAULT_ROLE_PERMISSIONS);
+  const [showPermissionsEditor, setShowPermissionsEditor] = useState(false);
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -43,6 +70,10 @@ export function UserManager() {
       if (data.current_user_id) {
         const cu = (data.users || []).find((u: User) => u.id === data.current_user_id);
         setCurrentUser(cu || null);
+      }
+      // Load custom role permissions or use defaults
+      if (data.role_permissions) {
+        setRolePermissions(data.role_permissions);
       }
       setError(null);
     } catch (err) {
@@ -73,6 +104,42 @@ export function UserManager() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveRolePermissions = async (updatedPermissions: RolePermissions) => {
+    try {
+      setSaving(true);
+      const res = await fetch("/api/config/telegram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role_permissions: updatedPermissions }),
+      });
+      if (!res.ok) throw new Error("Lưu thất bại");
+      setRolePermissions(updatedPermissions);
+      setSuccess("Đã cập nhật quyền cho các vai trò");
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError("Không thể lưu cấu hình quyền");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const togglePermission = (role: keyof RolePermissions, permission: Permission) => {
+    const currentPerms = rolePermissions[role];
+    const hasPermission = currentPerms.includes(permission);
+    
+    const newPerms = hasPermission
+      ? currentPerms.filter(p => p !== permission)
+      : [...currentPerms, permission];
+    
+    const updated: RolePermissions = {
+      ...rolePermissions,
+      [role]: newPerms,
+    };
+    
+    setRolePermissions(updated);
+    saveRolePermissions(updated);
   };
 
   const addUser = async () => {
@@ -212,8 +279,8 @@ export function UserManager() {
         {currentUser && (
           <div className="text-right">
             <p className="text-sm font-medium text-slate-200">{currentUser.name}</p>
-            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs text-white ${roleLabels[currentUser.role].color}`}>
-              {roleLabels[currentUser.role].label}
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs text-white ${getRoleLabel(currentUser.role).color}`}>
+              {getRoleLabel(currentUser.role).label}
             </span>
           </div>
         )}
@@ -232,22 +299,89 @@ export function UserManager() {
         </div>
       )}
 
-      {/* Role Info */}
-      <div className="grid md:grid-cols-3 gap-3 mb-6">
-        {Object.entries(roleLabels).map(([role, { label, color }]) => (
-          <div key={role} className="p-3 bg-slate-800/50 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`w-3 h-3 rounded-full ${color}`}></span>
-              <span className="font-medium text-slate-200 text-sm">{label}</span>
-            </div>
-            <ul className="text-xs text-slate-500 space-y-1">
-              {rolePermissions[role as UserRole].map((perm, i) => (
-                <li key={i}>• {perm}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
+      {/* Role Info with Permission Editor */}
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-sm text-slate-400">Các vai trò và quyền hạn</span>
+        {isAdmin && (
+          <button
+            onClick={() => setShowPermissionsEditor(!showPermissionsEditor)}
+            className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 transition-colors"
+          >
+            {showPermissionsEditor ? "✕ Đóng chỉnh sửa" : "⚙️ Tùy chỉnh quyền"}
+          </button>
+        )}
       </div>
+
+      {/* Permissions Editor */}
+      {showPermissionsEditor && isAdmin && (
+        <div className="mb-6 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+          <h3 className="font-medium text-slate-200 mb-3">⚙️ Tùy chỉnh quyền cho từng vai trò</h3>
+          <div className="space-y-4">
+            {(Object.keys(rolePermissions) as Array<keyof RolePermissions>).map((role) => (
+              <div key={role} className="border border-slate-700 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`w-3 h-3 rounded-full ${roleLabels[role].color}`}></span>
+                  <span className="font-medium text-slate-200">{roleLabels[role].label}</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                  {ALL_PERMISSIONS.map((perm) => {
+                    const hasPerm = rolePermissions[role].includes(perm.id);
+                    return (
+                      <button
+                        key={perm.id}
+                        onClick={() => togglePermission(role, perm.id)}
+                        disabled={saving}
+                        className={`p-2 rounded text-xs text-left transition-colors ${
+                          hasPerm
+                            ? "bg-emerald-900/30 border border-emerald-700 text-emerald-300"
+                            : "bg-slate-900 border border-slate-700 text-slate-500"
+                        }`}
+                      >
+                        <span className="mr-1">{hasPerm ? "☑️" : "⬜"}</span>
+                        <span>{perm.icon}</span>
+                        <span className="ml-1">{perm.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-slate-500 mt-3">
+            💡 Click vào từng quyền để bật/tắt. Thay đổi sẽ áp dụng ngay lập tức.
+          </p>
+        </div>
+      )}
+
+      {/* Simple Role Info (when not editing) */}
+      {!showPermissionsEditor && (
+        <div className="grid md:grid-cols-3 gap-3 mb-6">
+          {(Object.keys(rolePermissions) as Array<keyof RolePermissions>).map((role) => (
+            <div key={role} className="p-3 bg-slate-800/50 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`w-3 h-3 rounded-full ${roleLabels[role].color}`}></span>
+                <span className="font-medium text-slate-200 text-sm">{roleLabels[role].label}</span>
+                <span className="text-xs text-slate-500">({rolePermissions[role].length} quyền)</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {rolePermissions[role].slice(0, 4).map((permId, i) => {
+                  const perm = ALL_PERMISSIONS.find(p => p.id === permId);
+                  return (
+                    <span key={i} className="text-xs px-2 py-1 bg-slate-900 rounded text-slate-400">
+                      {perm?.icon} {perm?.label.split(" ")[0]}
+                    </span>
+                  );
+                })}
+                {rolePermissions[role].length > 4 && (
+                  <span className="text-xs px-2 py-1 bg-slate-900 rounded text-slate-500">
+                    +{rolePermissions[role].length - 4}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Add User Button */}
       {canManageUsers && (
@@ -397,15 +531,15 @@ export function UserManager() {
                               {isAdmin && <option value="admin">Quản trị viên</option>}
                             </select>
                           ) : (
-                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs text-white ${roleLabels[user.role].color}`}>
-                              {roleLabels[user.role].label}
+                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs text-white ${getRoleLabel(user.role).color}`}>
+                              {getRoleLabel(user.role).label}
                             </span>
                           )}
                         </td>
                         <td className="py-3">
                           <button
                             onClick={() => toggleUserStatus(user.id)}
-                            disabled={!canManageUsers || user.id === currentUser?.id}
+// ...
                             className={`inline-flex items-center px-2 py-1 rounded text-xs transition-colors ${
                               user.is_active
                                 ? "bg-emerald-500/20 text-emerald-400"

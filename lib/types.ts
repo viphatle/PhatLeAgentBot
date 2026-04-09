@@ -14,13 +14,33 @@ export type WatchItem = {
   created_at: string;
 };
 
-export type UserRole = "admin" | "manager" | "viewer";
+// Permission types
+export type Permission = 
+  | "view_prices"      // Xem giá chứng khoán
+  | "edit_watchlist"   // Sửa watchlist
+  | "send_telegram"    // Gửi Telegram
+  | "manage_users"     // Quản lý người dùng
+  | "system_settings"  // Cài đặt hệ thống
+  | "view_schedule"    // Xem lịch biểu
+  | "edit_schedule"    // Sửa lịch biểu
+  | "view_news"        // Xem tin tức
+  | "upload_files"     // Tải lên tệp tin
+  | "view_files";      // Xem tệp tin
+
+export type UserRole = "admin" | "manager" | "viewer" | "custom";
+
+export type RolePermissions = {
+  admin: Permission[];
+  manager: Permission[];
+  viewer: Permission[];
+};
 
 export type User = {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  custom_permissions?: Permission[]; // For custom role
   created_at: string;
   is_active: boolean;
 };
@@ -31,6 +51,7 @@ export type AppSettings = {
   mock_prices: boolean;
   users?: User[]; // User management
   current_user_id?: string; // Currently logged in user
+  role_permissions?: RolePermissions; // Customizable permissions per role
 };
 
 /** mock_demo = bật trong cài đặt */
