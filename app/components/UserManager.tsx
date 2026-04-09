@@ -496,53 +496,60 @@ export function UserManager() {
       {showAddForm && canManageUsers && (
         <div className="mb-6 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
           <h3 className="font-medium text-slate-200 mb-3">
-            {users.length === 0 ? "🌟 Tạo người dùng đầu tiên (Admin tự động)" : "Thêm người dùng mới"}
+            {users.length === 0 ? "🌟 Tạo người dùng đầu tiên (Admin tự động)" : "➕ Thêm người dùng mới"}
           </h3>
-          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-3">
-            <input
-              type="email"
-              placeholder="Email đăng nhập"
-              value={newUserEmail}
-              onChange={(e) => setNewUserEmail(e.target.value)}
-              className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
-            />
-            <input
-              type="text"
-              placeholder="Họ tên"
-              value={newUserName}
-              onChange={(e) => setNewUserName(e.target.value)}
-              className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
-            />
-            <input
-              type="password"
-              placeholder="Mật khẩu (tối thiểu 8 ký tự)"
-              value={newUserPassword}
-              onChange={(e) => setNewUserPassword(e.target.value)}
-              className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
-            />
-            {users.length === 0 ? (
-              <div className="px-3 py-2 bg-rose-900/30 border border-rose-800 rounded-lg text-rose-300 text-sm flex items-center">
-                🔴 Quản trị viên (Auto)
-              </div>
-            ) : (
-              <select
-                value={newUserRole}
-                onChange={(e) => setNewUserRole(e.target.value as UserRole)}
+          <div className="space-y-3">
+            {/* Row 1: Email, Name */}
+            <div className="grid md:grid-cols-2 gap-3">
+              <input
+                type="email"
+                placeholder="📧 Email đăng nhập *"
+                value={newUserEmail}
+                onChange={(e) => setNewUserEmail(e.target.value)}
                 className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
+              />
+              <input
+                type="text"
+                placeholder="👤 Họ tên *"
+                value={newUserName}
+                onChange={(e) => setNewUserName(e.target.value)}
+                className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            {/* Row 2: Password, Role, Save Button */}
+            <div className="grid md:grid-cols-3 gap-3">
+              <input
+                type="password"
+                placeholder="🔒 Mật khẩu (tối thiểu 8 ký tự) *"
+                value={newUserPassword}
+                onChange={(e) => setNewUserPassword(e.target.value)}
+                className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
+              />
+              {users.length === 0 ? (
+                <div className="px-3 py-2 bg-rose-900/30 border border-rose-800 rounded-lg text-rose-300 text-sm flex items-center justify-center">
+                  🔴 Quản trị viên (Auto)
+                </div>
+              ) : (
+                <select
+                  value={newUserRole}
+                  onChange={(e) => setNewUserRole(e.target.value as UserRole)}
+                  className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="viewer">👤 Người xem</option>
+                  <option value="manager">🔷 Quản lý</option>
+                  <option value="admin">🔴 Quản trị viên</option>
+                </select>
+              )}
+              <button
+                onClick={addUser}
+                disabled={saving}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1"
               >
-                <option value="viewer">Người xem</option>
-                <option value="manager">Quản lý</option>
-                <option value="admin">Quản trị viên</option>
-              </select>
-            )}
-            <button
-              onClick={addUser}
-              disabled={saving}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              {saving ? "⏳" : "💾 Lưu"}
-            </button>
+                {saving ? "⏳ Đang lưu..." : "💾 Lưu người dùng"}
+              </button>
+            </div>
           </div>
+          <p className="text-xs text-slate-500 mt-3">* Bắt buộc nhập | Mật khẩu tối thiểu 8 ký tự</p>
         </div>
       )}
 
