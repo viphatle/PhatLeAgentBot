@@ -86,17 +86,32 @@ export function UserManager() {
       return;
     }
 
+    // First user automatically becomes admin
+    const isFirstUser = users.length === 0;
+    const assignedRole = isFirstUser ? "admin" : newUserRole;
+    
     const newUser: User = {
       id: `user_${Date.now()}`,
       email: newUserEmail,
       name: newUserName,
-      role: newUserRole,
+      role: assignedRole,
       created_at: new Date().toISOString(),
       is_active: true,
     };
 
     const updatedUsers = [...users, newUser];
     await saveUsers(updatedUsers);
+    
+    // If first user, auto-set as current user
+    if (isFirstUser) {
+      await fetch("/api/config/telegram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_user_id: newUser.id }),
+      });
+      setCurrentUser(newUser);
+      setSuccess(`Người dùng đầu tiên "${newUser.name}" đã được tạo với quyền Admin`);
+    }
     
     // Reset form
     setNewUserEmail("");
@@ -179,8 +194,9 @@ export function UserManager() {
     }
   };
 
-  const canManageUsers = currentUser?.role === "admin" || currentUser?.role === "manager";
-  const isAdmin = currentUser?.role === "admin";
+  // Can manage if: has admin/manager role, or no users yet (initial setup)
+  const canManageUsers = !currentUser || currentUser?.role === "admin" || currentUser?.role === "manager";
+  const isAdmin = currentUser?.role === "admin" || !currentUser; // First user becomes admin
 
   return (
     <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5 md:p-6">
@@ -248,7 +264,9 @@ export function UserManager() {
       {/* Add User Form */}
       {showAddForm && canManageUsers && (
         <div className="mb-6 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-          <h3 className="font-medium text-slate-200 mb-3">Thêm người dùng mới</h3>
+          <h3 className="font-medium text-slate-200 mb-3">
+            {users.length === 0 ? "🌟 Tạo người dùng đầu tiên (Admin tự động)" : "Thêm người dùng mới"}
+          </h3>
           <div className="grid md:grid-cols-4 gap-3">
             <input
               type="email"
@@ -264,15 +282,21 @@ export function UserManager() {
               onChange={(e) => setNewUserName(e.target.value)}
               className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
             />
-            <select
-              value={newUserRole}
-              onChange={(e) => setNewUserRole(e.target.value as UserRole)}
-              className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
-            >
-              <option value="viewer">Người xem</option>
-              <option value="manager">Quản lý</option>
-              {isAdmin && <option value="admin">Quản trị viên</option>}
-            </select>
+            {users.length === 0 ? (
+              <div className="px-3 py-2 bg-rose-900/30 border border-rose-800 rounded-lg text-rose-300 text-sm flex items-center">
+                🔴 Quản trị viên (Auto)
+              </div>
+            ) : (
+              <select
+                value={newUserRole}
+                onChange={(e) => setNewUserRole(e.target.value as UserRole)}
+                className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
+              >
+                <option value="viewer">Người xem</option>
+                <option value="manager">Quản lý</option>
+                {isAdmin && <option value="admin">Quản trị viên</option>}
+              </select>
+            )}
             <button
               onClick={addUser}
               disabled={saving}
