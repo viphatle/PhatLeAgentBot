@@ -8,6 +8,12 @@ import { sendTelegramMessage } from "./telegram";
 const ALERT_LEVELS = [0, -10, -20, -30, -40, -50] as const;
 const LOSS_STEP = 10;
 
+// ANTI-SPAM CONFIGURATION
+const MIN_ALERT_INTERVAL_MINUTES = 120; // Minimum 2 hours between alerts for same stock
+const MAX_ALERTS_PER_DAY = 3; // Maximum 3 alerts per stock per day
+const QUIET_HOURS_START = 11; // 11:00 (lunch break start)
+const QUIET_HOURS_END = 13;   // 13:00 (lunch break end)
+
 function vnDayKey(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
@@ -25,6 +31,13 @@ function escapeHtml(s: string) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+// Check if current time is in quiet hours (lunch break)
+function isQuietHours(): boolean {
+  const now = new Date();
+  const vnHour = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" })).getHours();
+  return vnHour >= QUIET_HOURS_START && vnHour < QUIET_HOURS_END;
 }
 
 /**
@@ -45,7 +58,9 @@ function getAlertLevel(pnlPct: number): number | null {
 }
 
 export async function maybeSendPnlSpikeAlert(symbol: string, quote: Quote) {
+  // Only alert during active trading hours (skip lunch break)
   if (!isTradingSession()) return;
+  if (isQuietHours()) return; // Skip lunch break (11:00-13:00)
 
   const settings = await getSettings();
   const token = settings.telegram_bot_token.trim();
@@ -61,6 +76,7 @@ export async function maybeSendPnlSpikeAlert(symbol: string, quote: Quote) {
   const normalizedBuy = comparableBuyPrice(buyPrice, quote.price);
   const pnlPct = ((quote.price - normalizedBuy) / normalizedBuy) * 100;
   const day = vnDayKey();
+  const now = Date.now();
 
   // Get current alert level
   const alertLevel = getAlertLevel(pnlPct);
@@ -70,6 +86,20 @@ export async function maybeSendPnlSpikeAlert(symbol: string, quote: Quote) {
   const prev = await getPnlAlertState(sym);
   if (prev && prev.day === day && prev.alert_level === alertLevel) {
     return;  // Already sent for this level today
+  }
+
+  // ANTI-SPAM: Check minimum time interval between alerts
+  if (prev && prev.day === day && prev.last_alert_time) {
+    const minutesSinceLastAlert = (now - prev.last_alert_time) / (60 * 1000);
+    if (minutesSinceLastAlert < MIN_ALERT_INTERVAL_MINUTES) {
+      return; // Too soon since last alert
+    }
+  }
+
+  // ANTI-SPAM: Check max alerts per day
+  const dailyAlertCount = prev?.day === day ? (prev.daily_count || 0) : 0;
+  if (dailyAlertCount >= MAX_ALERTS_PER_DAY) {
+    return; // Max alerts reached for today
   }
 
   // Format alert message based on level
@@ -110,10 +140,15 @@ export async function maybeSendPnlSpikeAlert(symbol: string, quote: Quote) {
     `💰 Giá mua: <code>${normalizedBuy.toLocaleString("vi-VN")}</code>`,
     `📊 ${pnlLabel}: <b>${sign}${change.toLocaleString("vi-VN")} (${sign}${pnlPct.toFixed(2)}%)</b>`,
     "",
-    `<i>Chỉ báo 1 lần mỗi mức/ngày để tránh spam</i>`,
+    `<i>Giới hạn: ${dailyAlertCount + 1}/${MAX_ALERTS_PER_DAY} lần/ngày • Tối thiểu ${MIN_ALERT_INTERVAL_MINUTES} phút giữa các cảnh báo</i>`,
     `🕐 ${escapeHtml(vnTimeLabel())}`,
   ].join("\n");
 
   await sendTelegramMessage(token, chatId, text);
-  await setPnlAlertState(sym, { day, alert_level: alertLevel });
+  await setPnlAlertState(sym, { 
+    day, 
+    alert_level: alertLevel,
+    last_alert_time: now,
+    daily_count: dailyAlertCount + 1
+  });
 }

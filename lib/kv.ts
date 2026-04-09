@@ -136,6 +136,8 @@ export async function setScheduleEvents(next: ScheduleEvent[]) {
 export type PnlAlertState = {
   day: string;
   alert_level: number | null;  // e.g., 0, -10, -20, etc.
+  last_alert_time?: number;    // Timestamp of last alert (for rate limiting)
+  daily_count?: number;        // Number of alerts sent today (for daily limit)
 };
 
 export async function getPnlAlertState(symbol: string): Promise<PnlAlertState | null> {
