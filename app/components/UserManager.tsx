@@ -23,11 +23,16 @@ export function UserManager() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   
-  // Form states
+  // Form states for ADD
   const [showAddForm, setShowAddForm] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserName, setNewUserName] = useState("");
   const [newUserRole, setNewUserRole] = useState<UserRole>("viewer");
+  
+  // Form states for EDIT
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -119,6 +124,40 @@ export function UserManager() {
       u.id === id ? { ...u, role: newRole } : u
     );
     await saveUsers(updatedUsers);
+  };
+
+  const startEditUser = (user: User) => {
+    setEditingUser(user);
+    setEditName(user.name);
+    setEditEmail(user.email);
+  };
+
+  const cancelEdit = () => {
+    setEditingUser(null);
+    setEditName("");
+    setEditEmail("");
+  };
+
+  const saveEditUser = async () => {
+    if (!editingUser) return;
+    if (!editName || !editEmail) {
+      setError("Vui lòng nhập đầy đủ thông tin");
+      return;
+    }
+
+    // Check email duplicate (excluding current user)
+    if (users.some(u => u.email === editEmail && u.id !== editingUser.id)) {
+      setError("Email này đã được sử dụng bởi người dùng khác");
+      return;
+    }
+
+    const updatedUsers = users.map(u => 
+      u.id === editingUser.id 
+        ? { ...u, name: editName, email: editEmail } 
+        : u
+    );
+    await saveUsers(updatedUsers);
+    cancelEdit();
   };
 
   const switchToUser = async (id: string) => {
@@ -266,74 +305,130 @@ export function UserManager() {
               <tbody className="text-sm">
                 {users.map((user) => (
                   <tr key={user.id} className="border-b border-slate-800/50 hover:bg-slate-800/30">
-                    <td className="py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-sm">
-                          {user.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-200">{user.name}</p>
-                          <p className="text-xs text-slate-500">{user.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3">
-                      {canManageUsers ? (
-                        <select
-                          value={user.role}
-                          onChange={(e) => changeUserRole(user.id, e.target.value as UserRole)}
-                          disabled={user.id === currentUser?.id && user.role === "admin"}
-                          className="px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
-                        >
-                          <option value="viewer">Người xem</option>
-                          <option value="manager">Quản lý</option>
-                          {isAdmin && <option value="admin">Quản trị viên</option>}
-                        </select>
-                      ) : (
-                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs text-white ${roleLabels[user.role].color}`}>
-                          {roleLabels[user.role].label}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3">
-                      <button
-                        onClick={() => toggleUserStatus(user.id)}
-                        disabled={!canManageUsers || user.id === currentUser?.id}
-                        className={`inline-flex items-center px-2 py-1 rounded text-xs transition-colors ${
-                          user.is_active
-                            ? "bg-emerald-500/20 text-emerald-400"
-                            : "bg-slate-700 text-slate-500"
-                        }`}
-                      >
-                        {user.is_active ? "🟢 Hoạt động" : "⚪ Vô hiệu"}
-                      </button>
-                    </td>
-                    <td className="py-3 text-slate-500 text-xs">
-                      {new Date(user.created_at).toLocaleDateString("vi-VN")}
-                    </td>
-                    <td className="py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => switchToUser(user.id)}
-                          disabled={user.id === currentUser?.id}
-                          className={`px-2 py-1 rounded text-xs transition-colors ${
-                            user.id === currentUser?.id
-                              ? "bg-emerald-600 text-white"
-                              : "bg-slate-700 hover:bg-slate-600 text-slate-300"
-                          }`}
-                        >
-                          {user.id === currentUser?.id ? "✓ Đang dùng" : "Chuyển"}
-                        </button>
-                        {canManageUsers && user.id !== currentUser?.id && (
+                    {editingUser?.id === user.id ? (
+                      // EDIT MODE
+                      <>
+                        <td className="py-3" colSpan={2}>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              placeholder="Họ tên"
+                              className="flex-1 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                            />
+                            <input
+                              type="email"
+                              value={editEmail}
+                              onChange={(e) => setEditEmail(e.target.value)}
+                              placeholder="Email"
+                              className="flex-1 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                            />
+                          </div>
+                        </td>
+                        <td className="py-3"></td>
+                        <td className="py-3"></td>
+                        <td className="py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={saveEditUser}
+                              disabled={saving}
+                              className="px-2 py-1 rounded text-xs bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                            >
+                              {saving ? "⏳" : "💾 Lưu"}
+                            </button>
+                            <button
+                              onClick={cancelEdit}
+                              className="px-2 py-1 rounded text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+                            >
+                              ✕ Hủy
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      // VIEW MODE
+                      <>
+                        <td className="py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-sm">
+                              {user.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-200">{user.name}</p>
+                              <p className="text-xs text-slate-500">{user.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3">
+                          {canManageUsers ? (
+                            <select
+                              value={user.role}
+                              onChange={(e) => changeUserRole(user.id, e.target.value as UserRole)}
+                              disabled={user.id === currentUser?.id && user.role === "admin"}
+                              className="px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                            >
+                              <option value="viewer">Người xem</option>
+                              <option value="manager">Quản lý</option>
+                              {isAdmin && <option value="admin">Quản trị viên</option>}
+                            </select>
+                          ) : (
+                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs text-white ${roleLabels[user.role].color}`}>
+                              {roleLabels[user.role].label}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3">
                           <button
-                            onClick={() => deleteUser(user.id)}
-                            className="px-2 py-1 rounded text-xs bg-rose-900/30 hover:bg-rose-900/50 text-rose-400 transition-colors"
+                            onClick={() => toggleUserStatus(user.id)}
+                            disabled={!canManageUsers || user.id === currentUser?.id}
+                            className={`inline-flex items-center px-2 py-1 rounded text-xs transition-colors ${
+                              user.is_active
+                                ? "bg-emerald-500/20 text-emerald-400"
+                                : "bg-slate-700 text-slate-500"
+                            }`}
                           >
-                            🗑️
+                            {user.is_active ? "🟢 Hoạt động" : "⚪ Vô hiệu"}
                           </button>
-                        )}
-                      </div>
-                    </td>
+                        </td>
+                        <td className="py-3 text-slate-500 text-xs">
+                          {new Date(user.created_at).toLocaleDateString("vi-VN")}
+                        </td>
+                        <td className="py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => switchToUser(user.id)}
+                              disabled={user.id === currentUser?.id}
+                              className={`px-2 py-1 rounded text-xs transition-colors ${
+                                user.id === currentUser?.id
+                                  ? "bg-emerald-600 text-white"
+                                  : "bg-slate-700 hover:bg-slate-600 text-slate-300"
+                              }`}
+                            >
+                              {user.id === currentUser?.id ? "✓ Đang dùng" : "Chuyển"}
+                            </button>
+                            {canManageUsers && (
+                              <button
+                                onClick={() => startEditUser(user)}
+                                className="px-2 py-1 rounded text-xs bg-blue-900/30 hover:bg-blue-900/50 text-blue-400 transition-colors"
+                                title="Sửa thông tin"
+                              >
+                                ✏️
+                              </button>
+                            )}
+                            {canManageUsers && user.id !== currentUser?.id && (
+                              <button
+                                onClick={() => deleteUser(user.id)}
+                                className="px-2 py-1 rounded text-xs bg-rose-900/30 hover:bg-rose-900/50 text-rose-400 transition-colors"
+                                title="Xóa"
+                              >
+                                🗑️
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
