@@ -374,7 +374,7 @@ export function Dashboard() {
         {items.length === 0 ? (
           <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-8 text-center">
             <p className="text-slate-500 text-sm">Chưa có mã nào trong watchlist</p>
-            <p className="text-slate-600 text-xs mt-1">Nhấn "+ Thêm" để bắt đầu</p>
+            <p className="text-slate-600 text-xs mt-1">Nhấn &quot;+ Thêm&quot; để bắt đầu</p>
           </div>
         ) : watchlistView === "cards" ? (
           <StockTickerList items={items} quotes={quotes} loadingIds={loading} onDelete={onDelete} />
