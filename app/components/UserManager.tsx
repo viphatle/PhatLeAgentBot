@@ -374,28 +374,6 @@ export function UserManager() {
         </div>
       )}
 
-      {/* Debug Info - Shows linked auth user */}
-      <div className="mb-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-slate-300">👤 Tài khoản đăng nhập (Auth):</span>
-          {currentUser ? (
-            <span className="text-sm text-emerald-400">
-              {currentUser.name} ({currentUser.email}) - {getRoleLabel(currentUser.role).label}
-            </span>
-          ) : (
-            <span className="text-sm text-rose-400">⚠️ Chưa đăng nhập</span>
-          )}
-        </div>
-        <div className="mt-2 text-xs text-slate-500">
-          ID: {currentUser?.id || "N/A"} | Quyền quản lý: {canManageUsers ? "Có" : "Không"} | Admin: {isAdmin ? "Có" : "Không"}
-        </div>
-        {currentUser && (
-          <div className="mt-1 text-xs text-emerald-500/70">
-            ✅ Đã liên kết với hệ thống đăng nhập
-          </div>
-        )}
-      </div>
-
       {/* Role Info with Permission Editor */}
       <div className="mb-4 flex items-center justify-between">
         <span className="text-sm text-slate-400">Các vai trò và quyền hạn</span>

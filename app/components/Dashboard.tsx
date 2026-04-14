@@ -1,6 +1,6 @@
 "use client";
 
-import type { WatchItem } from "@/lib/types";
+import type { WatchItem, User } from "@/lib/types";
 import { useCallback, useEffect, useState } from "react";
 import { LogoutButton } from "./LogoutButton";
 import { ScheduleBoard } from "./ScheduleBoard";
@@ -8,6 +8,21 @@ import type { QuoteView } from "./StockTicker";
 import { StockTickerList } from "./StockTicker";
 import { NewsFeed } from "./NewsFeed";
 import { FileManager } from "./FileManager";
+
+function getRoleDisplay(role: string): { label: string; color: string } {
+  switch (role) {
+    case "super_admin":
+      return { label: "Super Admin", color: "text-amber-400" };
+    case "admin":
+      return { label: "Quản trị", color: "text-emerald-400" };
+    case "manager":
+      return { label: "Quản lý", color: "text-blue-400" };
+    case "viewer":
+    case "user":
+    default:
+      return { label: "Người xem", color: "text-slate-400" };
+  }
+}
 
 export function Dashboard() {
   const [items, setItems] = useState<WatchItem[]>([]);
@@ -17,6 +32,7 @@ export function Dashboard() {
   const [storageOk, setStorageOk] = useState(true);
   const [lastQuoteUpdate, setLastQuoteUpdate] = useState<string>("");
   const [mockPricesEnabled, setMockPricesEnabled] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ email: string; role: string } | null>(null);
 
   const refreshList = useCallback(async () => {
     try {
@@ -44,8 +60,11 @@ export function Dashboard() {
     try {
       const r = await fetch("/api/config/telegram");
       if (!r.ok) return;
-      const j = (await r.json()) as { mock_prices?: boolean };
+      const j = (await r.json()) as { mock_prices?: boolean; currentUser?: { uid: string; role: string } | null };
       setMockPricesEnabled(j.mock_prices === true);
+      if (j.currentUser) {
+        setCurrentUser({ email: j.currentUser.uid, role: j.currentUser.role });
+      }
     } catch {
       // Ignore errors
     }
@@ -160,6 +179,16 @@ export function Dashboard() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Current User Info */}
+            {currentUser && (
+              <div className="hidden sm:flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5">
+                <span className="text-slate-400">👤</span>
+                <span className="text-sm text-slate-200">{currentUser.email}</span>
+                <span className={`text-xs ${getRoleDisplay(currentUser.role).color}`}>
+                  ({getRoleDisplay(currentUser.role).label})
+                </span>
+              </div>
+            )}
             <a href="/settings" className="rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-sm text-slate-300 hover:border-slate-600 hover:text-white transition-colors">
               Settings
             </a>
