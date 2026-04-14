@@ -3,7 +3,7 @@
 import type { WatchItem, User } from "@/lib/types";
 import { formatCompactVn, formatPercent, formatStockDelta, formatStockPrice } from "@/lib/format";
 import { comparableBuyPrice } from "@/lib/pnl";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { LogoutButton } from "./LogoutButton";
 import { ScheduleBoard } from "./ScheduleBoard";
 import type { QuoteView } from "./StockTicker";
@@ -170,6 +170,16 @@ export function Dashboard() {
     }
     await refreshList();
   }, [refreshList]);
+
+  // Update suggested price in realtime when quotes change
+  useEffect(() => {
+    if (symbolInput.length >= 3) {
+      const quote = quotes[symbolInput];
+      if (quote?.price) {
+        setSuggestedPrice(quote.price);
+      }
+    }
+  }, [quotes, symbolInput]);
 
   return (
     <main className="min-h-screen bg-[#0a0f1a] p-4 md:p-6">
@@ -353,22 +363,14 @@ export function Dashboard() {
               <input
                 name="symbol"
                 value={symbolInput}
-                onChange={async (e) => {
+                onChange={(e) => {
                   const val = e.target.value.trim().toUpperCase();
                   setSymbolInput(val);
-                  if (val.length >= 3) {
-                    try {
-                      const r = await fetch(`/api/stocks/${encodeURIComponent(val)}/price`);
-                      if (r.ok) {
-                        const data = await r.json();
-                        setSuggestedPrice(data.price);
-                      } else {
-                        setSuggestedPrice(null);
-                      }
-                    } catch {
-                      setSuggestedPrice(null);
-                    }
-                  } else {
+                  // Use existing quotes data for realtime price
+                  const quote = quotes[val];
+                  if (quote?.price) {
+                    setSuggestedPrice(quote.price);
+                  } else if (val.length < 3) {
                     setSuggestedPrice(null);
                   }
                 }}
@@ -385,8 +387,8 @@ export function Dashboard() {
                 type="number"
                 step="0.01"
                 min="0"
-                placeholder={suggestedPrice ? `Giá thị trường: ${suggestedPrice.toFixed(2)}` : "Giá mua"}
-                className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2 font-mono text-sm text-slate-100 outline-none w-[160px]"
+                placeholder={suggestedPrice ? `Giá hiện tại: ${suggestedPrice.toFixed(2)}` : "Giá mua đã có"}
+                className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2 font-mono text-sm text-slate-100 outline-none w-[180px]"
                 autoComplete="off"
               />
               {suggestedPrice && (
@@ -396,9 +398,10 @@ export function Dashboard() {
                     const input = e.currentTarget.parentElement?.querySelector('input[name="buy_price"]') as HTMLInputElement;
                     if (input) input.value = suggestedPrice.toFixed(2);
                   }}
-                  className="text-[10px] text-slate-400 hover:text-emerald-400 text-left"
+                  className="text-[10px] text-slate-400 hover:text-emerald-400 text-left flex items-center gap-1"
                 >
-                  ⬅️ Dùng giá thị trường
+                  <span>⬅️</span>
+                  <span>Dùng {suggestedPrice.toFixed(2)}</span>
                 </button>
               )}
             </div>
