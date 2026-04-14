@@ -169,6 +169,89 @@ export function StockTickerCard({
   );
 }
 
+// Compact row for table view
+export function CompactStockTickerRow({
+  item,
+  quote,
+  loading,
+  onDelete,
+}: {
+  item: WatchItem;
+  quote: QuoteView;
+  loading: boolean;
+  onDelete: (id: string) => void;
+}) {
+  const up = quote ? quote.change >= 0 : true;
+  const priceColor = quote ? (up ? "text-emerald-400" : "text-rose-400") : "text-slate-400";
+  const hasBuyPrice = Number.isFinite(item.buy_price);
+  const buyPrice = hasBuyPrice ? Number(item.buy_price) : undefined;
+  const normalizedBuyPrice = quote && buyPrice ? comparableBuyPrice(buyPrice, quote.price) : buyPrice;
+  const hasPnl = Boolean(quote && normalizedBuyPrice);
+  const pnlValue = hasPnl && quote && normalizedBuyPrice ? quote.price - normalizedBuyPrice : null;
+  const pnlPct = hasPnl && quote && normalizedBuyPrice ? ((quote.price - normalizedBuyPrice) / normalizedBuyPrice) * 100 : null;
+  const pnlUp = pnlValue !== null ? pnlValue >= 0 : true;
+  const sourceColor = getSourceColor(quote?.source ?? "");
+  const sourceLabel = getSourceLabel(quote?.source ?? "");
+
+  return (
+    <div className="grid grid-cols-[80px_1fr_100px_100px_60px] gap-2 px-3 py-2 text-sm hover:bg-slate-800/40 transition-colors items-center">
+      {/* Symbol */}
+      <Link 
+        href={`/stocks/${encodeURIComponent(item.symbol)}`}
+        className="font-mono font-semibold text-white hover:text-emerald-400 transition-colors text-xs"
+      >
+        {item.symbol}
+      </Link>
+
+      {/* Price & Change */}
+      <div>
+        {loading && <span className="text-slate-500 text-xs">…</span>}
+        {!loading && !quote && <span className="text-slate-500 text-xs">—</span>}
+        {!loading && quote && (
+          <div className="flex items-center gap-2">
+            <span className={`font-mono font-bold ${priceColor}`}>{formatStockPrice(quote.price)}</span>
+            <span className={`text-xs ${priceColor}`}>
+              {up ? "+" : ""}{formatStockDelta(quote.change)} ({formatPercent(quote.change_pct)})
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* PnL */}
+      <div className="text-right">
+        {hasPnl && pnlValue !== null ? (
+          <div className={`text-xs ${pnlUp ? "text-emerald-400" : "text-rose-400"}`}>
+            {pnlUp ? "+" : ""}{formatCompactVn(pnlValue)}
+            <span className="ml-1 text-[10px]">({formatPercent(pnlPct ?? 0)})</span>
+          </div>
+        ) : (
+          <span className="text-slate-500 text-xs">—</span>
+        )}
+      </div>
+
+      {/* Source */}
+      <div className="text-right">
+        {quote && (
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-900/80 ${sourceColor}`}>
+            {sourceLabel}
+          </span>
+        )}
+      </div>
+
+      {/* Delete */}
+      <div className="text-right">
+        <button
+          onClick={() => onDelete(item.id)}
+          className="text-slate-500 hover:text-rose-400 transition-colors text-xs px-1.5 py-0.5 rounded hover:bg-rose-500/10"
+          title="Xóa"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function StockTickerList({
   items,
   quotes,

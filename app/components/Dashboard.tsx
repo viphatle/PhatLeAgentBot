@@ -1,11 +1,13 @@
 "use client";
 
 import type { WatchItem, User } from "@/lib/types";
-import { useCallback, useEffect, useState } from "react";
+import { formatCompactVn, formatPercent, formatStockDelta, formatStockPrice } from "@/lib/format";
+import { comparableBuyPrice } from "@/lib/pnl";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { LogoutButton } from "./LogoutButton";
 import { ScheduleBoard } from "./ScheduleBoard";
 import type { QuoteView } from "./StockTicker";
-import { StockTickerList } from "./StockTicker";
+import { StockTickerList, CompactStockTickerRow } from "./StockTicker";
 import { NewsFeed } from "./NewsFeed";
 import { FileManager } from "./FileManager";
 
@@ -33,6 +35,8 @@ export function Dashboard() {
   const [lastQuoteUpdate, setLastQuoteUpdate] = useState<string>("");
   const [mockPricesEnabled, setMockPricesEnabled] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ email: string; role: string } | null>(null);
+  const [watchlistView, setWatchlistView] = useState<"cards" | "compact">("compact");
+  const [showAddStock, setShowAddStock] = useState(false);
 
   const refreshList = useCallback(async () => {
     try {
@@ -226,29 +230,176 @@ export function Dashboard() {
         </div>
       </header>
 
-      {/* Stock Grid */}
+      {/* Watchlist Section */}
       <section className="mb-8">
+        {/* Stats Summary */}
+        {items.length > 0 && (
+          <div className="mb-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {(() => {
+              let upCount = 0, downCount = 0, totalPnl = 0, invested = 0;
+              items.forEach((item) => {
+                const q = quotes[item.symbol];
+                if (q) {
+                  if (q.change >= 0) upCount++; else downCount++;
+                  if (item.buy_price) {
+                    const qty = Math.floor(10000000 / comparableBuyPrice(Number(item.buy_price), q.price));
+                    totalPnl += (q.price - comparableBuyPrice(Number(item.buy_price), q.price)) * qty;
+                    invested += comparableBuyPrice(Number(item.buy_price), q.price) * qty;
+                  }
+                }
+              });
+              const pnlPct = invested > 0 ? (totalPnl / invested) * 100 : 0;
+              return (
+                <>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-2">
+                    <div className="text-[10px] text-slate-500 uppercase">Tổng mã</div>
+                    <div className="text-lg font-bold text-slate-200">{items.length}</div>
+                  </div>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-2">
+                    <div className="text-[10px] text-slate-500 uppercase">Tăng/Giảm</div>
+                    <div className="text-lg font-bold">
+                      <span className="text-emerald-400">{upCount}</span>
+                      <span className="text-slate-500 mx-1">/</span>
+                      <span className="text-rose-400">{downCount}</span>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-2">
+                    <div className="text-[10px] text-slate-500 uppercase">Đã đầu tư</div>
+                    <div className="text-sm font-bold text-slate-200">{invested > 0 ? formatCompactVn(invested) : "—"}</div>
+                  </div>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-2">
+                    <div className="text-[10px] text-slate-500 uppercase">Lãi/Lỗ</div>
+                    <div className={`text-sm font-bold ${totalPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      {totalPnl !== 0 ? `${totalPnl >= 0 ? "+" : ""}${formatCompactVn(totalPnl)} (${formatPercent(pnlPct)})` : "—"}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Quick Stock Chips */}
+        {items.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-1.5">
+            {items.slice(0, 10).map((item) => {
+              const q = quotes[item.symbol];
+              const up = q ? q.change >= 0 : true;
+              return (
+                <a
+                  key={item.id}
+                  href={`/stocks/${encodeURIComponent(item.symbol)}`}
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] transition-colors ${
+                    up ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-rose-500/10 text-rose-400 border border-rose-500/30"
+                  }`}
+                >
+                  {item.symbol}
+                  {q && <span>{up ? "↑" : "↓"}{formatPercent(q.change_pct)}</span>}
+                </a>
+              );
+            })}
+            {items.length > 10 && (
+              <span className="inline-flex rounded-full bg-slate-800/50 px-2 py-0.5 text-[10px] text-slate-400">+{items.length - 10} mã</span>
+            )}
+          </div>
+        )}
+
+        {/* Header with View Toggle */}
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-200">Watchlist</h2>
-          <button
-            onClick={() => {
-              const symbol = prompt("Nhập mã cổ phiếu (VD: VCB, FPT, DPM):");
-              const buyPrice = prompt("Giá mua (để trống nếu không có):");
+          <div className="flex items-center gap-2">
+            {/* View Mode Toggle */}
+            <div className="flex gap-1 rounded-lg bg-slate-800/50 p-0.5">
+              <button
+                onClick={() => setWatchlistView("compact")}
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors ${watchlistView === "compact" ? "bg-slate-700 text-slate-200" : "text-slate-500 hover:text-slate-300"}`}
+              >
+                Bảng
+              </button>
+              <button
+                onClick={() => setWatchlistView("cards")}
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors ${watchlistView === "cards" ? "bg-slate-700 text-slate-200" : "text-slate-500 hover:text-slate-300"}`}
+              >
+                Cards
+              </button>
+            </div>
+            {/* Add Button */}
+            <button
+              onClick={() => setShowAddStock(!showAddStock)}
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors"
+            >
+              {showAddStock ? "✕" : "+ Thêm"}
+            </button>
+          </div>
+        </div>
+
+        {/* Add Stock Form */}
+        {showAddStock && (
+          <form
+            className="mb-4 flex flex-wrap gap-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              const symbol = String(fd.get("symbol") ?? "").trim();
+              const priceStr = String(fd.get("buy_price") ?? "").trim();
               if (symbol) {
-                void onAdd(symbol, buyPrice ? parseFloat(buyPrice) : undefined);
+                await onAdd(symbol, priceStr ? parseFloat(priceStr) : undefined);
+                setShowAddStock(false);
+                e.currentTarget.reset();
               }
             }}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 transition-colors"
           >
-            + Thêm mã
-          </button>
-        </div>
-        <StockTickerList
-          items={items}
-          quotes={quotes}
-          loadingIds={loading}
-          onDelete={onDelete}
-        />
+            <input
+              name="symbol"
+              placeholder="Mã (VD: VCB)"
+              className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2 font-mono text-sm uppercase text-slate-100 outline-none w-[140px]"
+              maxLength={20}
+              required
+              autoComplete="off"
+            />
+            <input
+              name="buy_price"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Giá mua"
+              className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2 font-mono text-sm text-slate-100 outline-none w-[120px]"
+              autoComplete="off"
+            />
+            <button type="submit" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">Thêm</button>
+          </form>
+        )}
+
+        {/* Watchlist Content */}
+        {items.length === 0 ? (
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-8 text-center">
+            <p className="text-slate-500 text-sm">Chưa có mã nào trong watchlist</p>
+            <p className="text-slate-600 text-xs mt-1">Nhấn "+ Thêm" để bắt đầu</p>
+          </div>
+        ) : watchlistView === "cards" ? (
+          <StockTickerList items={items} quotes={quotes} loadingIds={loading} onDelete={onDelete} />
+        ) : (
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 overflow-hidden">
+            <div className="grid grid-cols-[80px_1fr_100px_100px_60px] gap-2 px-3 py-2 text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-800 bg-slate-900/80">
+              <div>Mã</div>
+              <div>Giá / Thay đổi</div>
+              <div className="text-right">Lãi/Lỗ</div>
+              <div className="text-right">Nguồn</div>
+              <div></div>
+            </div>
+            <div className="divide-y divide-slate-800/50">
+              {items.map((item) => (
+                <CompactStockTickerRow
+                  key={item.id}
+                  item={item}
+                  quote={quotes[item.symbol] ?? null}
+                  loading={loading[item.symbol] ?? false}
+                  onDelete={onDelete}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* News Feed - Two column layout */}
