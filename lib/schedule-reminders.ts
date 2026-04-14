@@ -44,8 +44,11 @@ export async function sendScheduleCreatedNotice(e: ScheduleEvent) {
       : recurrence === "monthly"
       ? `Lặp hàng tháng (ngày ${e.recurrence?.month_day ?? "-"})`
       : "Không lặp";
+  const visibilityText = e.visibility === "public" ? "🌐 Công khai" : "🔒 Riêng tư";
+  const userText = e.created_by && e.created_by !== "anonymous" ? e.created_by : "Khách";
   const text = [
-    "🗓️ <b>Đã tạo ghi chú lịch mới</b>",
+    `� <b>Đã tạo ghi chú lịch mới</b>`,
+    `👤 <b>${escapeHtml(userText)}</b> | ${visibilityText}`,
     "",
     `⏰ <b>${escapeHtml(eventLine(e))}</b>`,
     `📝 GHI CHÚ: ${escapeHtml(e.note)}`,
@@ -76,8 +79,10 @@ export async function processScheduleReminders(now = new Date()) {
       if (msToStart <= 0) continue;
 
       if (!sent1d.has(occ.date) && msToStart <= 24 * 60 * 60 * 1000) {
+        const userText = e.created_by && e.created_by !== "anonymous" ? e.created_by : "Khách";
         const text = [
           "⏳ <b>Nhắc lịch: còn khoảng 1 ngày</b>",
+          `👤 ${escapeHtml(userText)}`,
           "",
           `⏰ <b>${escapeHtml(`${vnDateDisplay(occ.date)} ${occ.time}`)}</b>`,
           `📝 GHI CHÚ: ${escapeHtml(e.note)}`,
@@ -89,8 +94,10 @@ export async function processScheduleReminders(now = new Date()) {
       }
 
       if (!sent1h.has(occ.date) && msToStart <= 60 * 60 * 1000) {
+        const userText = e.created_by && e.created_by !== "anonymous" ? e.created_by : "Khách";
         const text = [
           "🔔 <b>Nhắc lịch: còn khoảng 1 giờ</b>",
+          `👤 ${escapeHtml(userText)}`,
           "",
           `⏰ <b>${escapeHtml(`${vnDateDisplay(occ.date)} ${occ.time}`)}</b>`,
           `📝 GHI CHÚ: ${escapeHtml(e.note)}`,
