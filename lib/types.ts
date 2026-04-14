@@ -82,6 +82,8 @@ export type ScheduleEvent = {
   created_at: string;
   remind_1d_keys?: string[]; // keys dạng YYYY-MM-DD
   remind_1h_keys?: string[]; // keys dạng YYYY-MM-DD
+  visibility?: "public" | "private"; // Quyền truy cập
+  created_by?: string; // Người tạo sự kiện (user id)
 };
 
 export type ScheduleOccurrence = {
@@ -92,4 +94,6 @@ export type ScheduleOccurrence = {
   note: string;
   recurrence_mode: "none" | "weekly" | "monthly";
   recurrence_text: string;
+  visibility?: "public" | "private"; // Quyền truy cập
+  created_by?: string; // Người tạo sự kiện
 };

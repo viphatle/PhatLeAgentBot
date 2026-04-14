@@ -61,6 +61,8 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
   const [repeatMode, setRepeatMode] = useState<"none" | "weekly" | "monthly">("none");
   const [repeatWeekdays, setRepeatWeekdays] = useState<number[]>([]);
   const [repeatMonthDay, setRepeatMonthDay] = useState(() => new Date().getDate());
+  const [visibility, setVisibility] = useState<"public" | "private">("private");
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -71,8 +73,16 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
       try {
         const r = await fetch(`/api/schedule?month=${monthKey}`);
         if (!r.ok) return;
-        const j = (await r.json()) as { events?: ScheduleOccurrence[] };
-        setEvents(j.events ?? []);
+        const j = (await r.json()) as { events?: ScheduleOccurrence[]; currentUser?: string | null };
+        setCurrentUser(j.currentUser ?? null);
+        // Filter events: show public events OR private events owned by current user
+        const allEvents = j.events ?? [];
+        const filtered = allEvents.filter(e => 
+          e.visibility === "public" || 
+          !e.created_by || 
+          e.created_by === j.currentUser
+        );
+        setEvents(filtered);
       } catch {
         // Keep UI stable when API is temporarily unreachable.
       }
@@ -370,8 +380,54 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Nhập nội dung công việc cần thực hiện...&#10;💡 Gợi ý: thêm 'KHẨN' để đánh dấu ưu tiên cao"
-                  className="w-full h-28 rounded-lg border border-slate-700 bg-slate-800/50 p-3 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-colors resize-none"
+                  className="w-full h-24 rounded-lg border border-slate-700 bg-slate-800/50 p-3 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-colors resize-none"
                 />
+              </div>
+
+              {/* Visibility Toggle */}
+              <div>
+                <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">Quyền truy cập</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setVisibility("private")}
+                    className={`
+                      p-3 rounded-lg border-2 transition-all text-left active:scale-[0.98]
+                      ${visibility === "private"
+                        ? "border-rose-500 bg-rose-900/20"
+                        : "border-slate-700 bg-slate-800/50 active:bg-slate-700"
+                      }
+                    `}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">🔒</span>
+                      <span className={`text-sm font-medium ${visibility === "private" ? "text-rose-400" : "text-slate-400"}`}>
+                        Riêng tư
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 leading-tight">Chỉ bạn xem</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setVisibility("public")}
+                    className={`
+                      p-3 rounded-lg border-2 transition-all text-left active:scale-[0.98]
+                      ${visibility === "public"
+                        ? "border-emerald-500 bg-emerald-900/20"
+                        : "border-slate-700 bg-slate-800/50 active:bg-slate-700"
+                      }
+                    `}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">🌐</span>
+                      <span className={`text-sm font-medium ${visibility === "public" ? "text-emerald-400" : "text-slate-400"}`}>
+                        Công khai
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 leading-tight">Mọi người xem</p>
+                  </button>
+                </div>
               </div>
 
               {/* Submit Button */}
@@ -390,6 +446,7 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
                         date: selectedDate,
                         time,
                         note: note.trim(),
+                        visibility,
                         recurrence: {
                           mode: repeatMode,
                           weekdays: repeatWeekdays,
@@ -403,9 +460,17 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
                       return;
                     }
                     const rr = await fetch(`/api/schedule?month=${monthKey}`);
-                    const jj = (await rr.json().catch(() => ({}))) as { events?: ScheduleOccurrence[] };
-                    setEvents(jj.events ?? []);
+                    const jj = (await rr.json().catch(() => ({}))) as { events?: ScheduleOccurrence[]; currentUser?: string | null };
+                    setCurrentUser(jj.currentUser ?? null);
+                    const allEvents = jj.events ?? [];
+                    const filtered = allEvents.filter(e => 
+                      e.visibility === "public" || 
+                      !e.created_by || 
+                      e.created_by === jj.currentUser
+                    );
+                    setEvents(filtered);
                     setNote("");
+                    setVisibility("private");
                     setMsg("✅ Đã lưu và gửi thông báo Telegram");
                   } catch {
                     setMsg("❌ Không kết nối được máy chủ");
@@ -458,12 +523,21 @@ export function ScheduleBoard({ embedded = false }: { embedded?: boolean }) {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-lg">{getEventIcon(e.note)}</span>
                             <span className="text-sm font-semibold font-mono">{formatTimeDisplay(e.time)}</span>
                             {e.recurrence_text && (
                               <span className="px-1.5 py-0.5 rounded bg-slate-700/50 text-[10px] text-slate-400">
                                 🔄 {e.recurrence_text}
+                              </span>
+                            )}
+                            {e.visibility === "private" ? (
+                              <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-[10px] text-rose-400 border border-rose-500/30">
+                                🔒 Riêng tư
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-[10px] text-emerald-400 border border-emerald-500/30">
+                                🌐 Công khai
                               </span>
                             )}
                           </div>
