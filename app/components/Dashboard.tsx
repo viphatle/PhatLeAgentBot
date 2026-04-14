@@ -37,6 +37,8 @@ export function Dashboard() {
   const [currentUser, setCurrentUser] = useState<{ email: string; role: string } | null>(null);
   const [watchlistView, setWatchlistView] = useState<"cards" | "compact">("compact");
   const [showAddStock, setShowAddStock] = useState(false);
+  const [suggestedPrice, setSuggestedPrice] = useState<number | null>(null);
+  const [symbolInput, setSymbolInput] = useState("");
 
   const refreshList = useCallback(async () => {
     try {
@@ -234,21 +236,21 @@ export function Dashboard() {
       <section className="mb-8">
         {/* Stats Summary */}
         {items.length > 0 && (
-          <div className="mb-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="mb-4 grid grid-cols-3 gap-2">
             {(() => {
-              let upCount = 0, downCount = 0, totalPnl = 0, invested = 0;
+              let upCount = 0, downCount = 0, avgPnlPct = 0, withBuyPriceCount = 0;
               items.forEach((item) => {
                 const q = quotes[item.symbol];
                 if (q) {
                   if (q.change >= 0) upCount++; else downCount++;
-                  if (item.buy_price) {
-                    const qty = Math.floor(10000000 / comparableBuyPrice(Number(item.buy_price), q.price));
-                    totalPnl += (q.price - comparableBuyPrice(Number(item.buy_price), q.price)) * qty;
-                    invested += comparableBuyPrice(Number(item.buy_price), q.price) * qty;
+                  if (item.buy_price && q.price) {
+                    const buy = comparableBuyPrice(Number(item.buy_price), q.price);
+                    avgPnlPct += ((q.price - buy) / buy) * 100;
+                    withBuyPriceCount++;
                   }
                 }
               });
-              const pnlPct = invested > 0 ? (totalPnl / invested) * 100 : 0;
+              const avgPnl = withBuyPriceCount > 0 ? avgPnlPct / withBuyPriceCount : 0;
               return (
                 <>
                   <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-2">
@@ -264,13 +266,9 @@ export function Dashboard() {
                     </div>
                   </div>
                   <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-2">
-                    <div className="text-[10px] text-slate-500 uppercase">Đã đầu tư</div>
-                    <div className="text-sm font-bold text-slate-200">{invested > 0 ? formatCompactVn(invested) : "—"}</div>
-                  </div>
-                  <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-2">
-                    <div className="text-[10px] text-slate-500 uppercase">Lãi/Lỗ</div>
-                    <div className={`text-sm font-bold ${totalPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                      {totalPnl !== 0 ? `${totalPnl >= 0 ? "+" : ""}${formatCompactVn(totalPnl)} (${formatPercent(pnlPct)})` : "—"}
+                    <div className="text-[10px] text-slate-500 uppercase">Lãi/Lỗ TB</div>
+                    <div className={`text-lg font-bold ${avgPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      {withBuyPriceCount > 0 ? `${avgPnl >= 0 ? "+" : ""}${formatPercent(avgPnl)}` : "—"}
                     </div>
                   </div>
                 </>
@@ -336,7 +334,7 @@ export function Dashboard() {
         {/* Add Stock Form */}
         {showAddStock && (
           <form
-            className="mb-4 flex flex-wrap gap-2"
+            className="mb-4 flex flex-wrap gap-2 items-start"
             onSubmit={async (e) => {
               e.preventDefault();
               const fd = new FormData(e.currentTarget);
@@ -345,27 +343,65 @@ export function Dashboard() {
               if (symbol) {
                 await onAdd(symbol, priceStr ? parseFloat(priceStr) : undefined);
                 setShowAddStock(false);
+                setSymbolInput("");
+                setSuggestedPrice(null);
                 e.currentTarget.reset();
               }
             }}
           >
-            <input
-              name="symbol"
-              placeholder="Mã (VD: VCB)"
-              className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2 font-mono text-sm uppercase text-slate-100 outline-none w-[140px]"
-              maxLength={20}
-              required
-              autoComplete="off"
-            />
-            <input
-              name="buy_price"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Giá mua"
-              className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2 font-mono text-sm text-slate-100 outline-none w-[120px]"
-              autoComplete="off"
-            />
+            <div className="flex flex-col gap-1">
+              <input
+                name="symbol"
+                value={symbolInput}
+                onChange={async (e) => {
+                  const val = e.target.value.trim().toUpperCase();
+                  setSymbolInput(val);
+                  if (val.length >= 3) {
+                    try {
+                      const r = await fetch(`/api/stocks/${encodeURIComponent(val)}/price`);
+                      if (r.ok) {
+                        const data = await r.json();
+                        setSuggestedPrice(data.price);
+                      } else {
+                        setSuggestedPrice(null);
+                      }
+                    } catch {
+                      setSuggestedPrice(null);
+                    }
+                  } else {
+                    setSuggestedPrice(null);
+                  }
+                }}
+                placeholder="Mã (VD: VCB)"
+                className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2 font-mono text-sm uppercase text-slate-100 outline-none w-[140px]"
+                maxLength={20}
+                required
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <input
+                name="buy_price"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder={suggestedPrice ? `Giá thị trường: ${suggestedPrice.toFixed(2)}` : "Giá mua"}
+                className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2 font-mono text-sm text-slate-100 outline-none w-[160px]"
+                autoComplete="off"
+              />
+              {suggestedPrice && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    const input = e.currentTarget.parentElement?.querySelector('input[name="buy_price"]') as HTMLInputElement;
+                    if (input) input.value = suggestedPrice.toFixed(2);
+                  }}
+                  className="text-[10px] text-slate-400 hover:text-emerald-400 text-left"
+                >
+                  ⬅️ Dùng giá thị trường
+                </button>
+              )}
+            </div>
             <button type="submit" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">Thêm</button>
           </form>
         )}
