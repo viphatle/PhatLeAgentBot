@@ -5,6 +5,7 @@ import { lookupCompanyNameVi } from "@/lib/company-vi";
 import { formatCompactVn, formatNumberVn, formatPercent, formatStockDelta, formatStockPrice } from "@/lib/format";
 import { comparableBuyPrice } from "@/lib/pnl";
 import Link from "next/link";
+import { useState } from "react";
 
 export type QuoteView = {
   price: number;
@@ -233,5 +234,89 @@ export function MobileStockCard({
         </div>
       </div>
     </article>
+  );
+}
+
+// Compact row view for dense table display
+export function CompactStockRow({
+  item,
+  quote,
+  loading,
+  onDelete,
+}: {
+  item: WatchItem;
+  quote: QuoteView;
+  loading: boolean;
+  onDelete: (id: string) => void;
+}) {
+  const [showActions, setShowActions] = useState(false);
+  const up = quote ? quote.change >= 0 : true;
+  const color = quote ? (up ? "text-emerald-400" : "text-rose-400") : "text-muted";
+  const hasBuyPrice = Number.isFinite(item.buy_price);
+  const buyPrice = hasBuyPrice ? Number(item.buy_price) : undefined;
+  const normalizedBuyPrice = quote && buyPrice ? comparableBuyPrice(buyPrice, quote.price) : buyPrice;
+  const hasPnl = Boolean(quote && normalizedBuyPrice);
+  const pnlValue = hasPnl && quote && normalizedBuyPrice ? quote.price - normalizedBuyPrice : null;
+  const pnlPct = hasPnl && quote && normalizedBuyPrice ? ((quote.price - normalizedBuyPrice) / normalizedBuyPrice) * 100 : null;
+  const pnlUp = pnlValue !== null ? pnlValue >= 0 : true;
+  const pnlColor = pnlValue !== null ? (pnlUp ? "text-emerald-400" : "text-rose-400") : "text-muted";
+
+  return (
+    <div 
+      className="group grid grid-cols-[1fr_80px_140px_100px] gap-2 px-3 py-2 text-sm hover:bg-slate-800/40 transition-colors relative"
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => setShowActions(false)}
+    >
+      {/* Company */}
+      <div className="min-w-0">
+        <Link href={`/stocks/${encodeURIComponent(item.symbol)}`} className="font-mono font-semibold text-accent hover:underline text-xs sm:text-sm">
+          {item.symbol}
+        </Link>
+        <div className="text-[10px] text-slate-400 truncate">{item.display_name}</div>
+      </div>
+
+      {/* Price */}
+      <div className={color}>
+        {loading && <span className="text-muted">…</span>}
+        {!loading && !quote && <span className="text-muted">—</span>}
+        {!loading && quote && (
+          <span className="font-mono text-xs sm:text-sm">{formatStockPrice(quote.price)}</span>
+        )}
+      </div>
+
+      {/* Change */}
+      <div className={color}>
+        {loading && <span className="text-muted">…</span>}
+        {!loading && !quote && <span className="text-muted">—</span>}
+        {!loading && quote && (
+          <div className="text-xs sm:text-sm">
+            <span>{up ? "+" : ""}{formatStockDelta(quote.change)}</span>
+            <span className="ml-1 text-[10px]">({formatPercent(quote.change_pct)})</span>
+          </div>
+        )}
+      </div>
+
+      {/* PnL & Actions */}
+      <div className="text-right relative">
+        {hasPnl && pnlValue !== null ? (
+          <div className={`text-xs ${pnlColor}`}>
+            {pnlUp ? "+" : ""}{formatCompactVn(pnlValue)}
+            <span className="ml-1 text-[10px]">({formatPercent(pnlPct ?? 0)})</span>
+          </div>
+        ) : (
+          <span className="text-muted text-xs">—</span>
+        )}
+        {/* Delete button - show on hover or when no PnL */}
+        <button
+          onClick={() => onDelete(item.id)}
+          className={`absolute right-0 top-0 rounded px-1.5 py-0.5 text-[10px] text-rose-400 hover:bg-rose-500/20 transition-opacity ${
+            showActions || !hasPnl ? "opacity-100" : "opacity-0"
+          }`}
+          title="Xóa"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
   );
 }
