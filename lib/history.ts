@@ -8,6 +8,9 @@ export type HistoryPeriod = "week" | "month" | "quarter" | "half" | "year";
 
 export type HistoryPoint = {
   date: string; // YYYY-MM-DD
+  open: number;
+  high: number;
+  low: number;
   close: number;
   volume: number;
 };
@@ -510,20 +513,30 @@ async function fetchYahooHistory(symbol: string, period: HistoryPeriod): Promise
         chart?: {
           result?: Array<{
             timestamp?: number[];
-            indicators?: { quote?: Array<{ close?: Array<number | null>; volume?: Array<number | null> }> };
+            indicators?: { quote?: Array<{ open?: Array<number | null>; high?: Array<number | null>; low?: Array<number | null>; close?: Array<number | null>; volume?: Array<number | null> }> };
           }>;
         };
       };
       const res = data.chart?.result?.[0];
       const ts = res?.timestamp ?? [];
-      const close = res?.indicators?.quote?.[0]?.close ?? [];
-      const volume = res?.indicators?.quote?.[0]?.volume ?? [];
+      const quote = res?.indicators?.quote?.[0];
+      const open = quote?.open ?? [];
+      const high = quote?.high ?? [];
+      const low = quote?.low ?? [];
+      const close = quote?.close ?? [];
+      const volume = quote?.volume ?? [];
       const points: HistoryPoint[] = [];
       for (let i = 0; i < ts.length; i += 1) {
         const c = num(close[i]);
+        const o = num(open[i]);
+        const h = num(high[i]);
+        const l = num(low[i]);
         if (!Number.isFinite(c) || c <= 0) continue;
         points.push({
           date: toYmd(ts[i]),
+          open: Number.isFinite(o) && o > 0 ? o : c,
+          high: Number.isFinite(h) && h > 0 ? h : c,
+          low: Number.isFinite(l) && l > 0 ? l : c,
           close: c,
           volume: Math.max(0, Math.round(num(volume[i]) || 0)),
         });
@@ -558,8 +571,11 @@ async function fetchVndirectHistory(symbol: string, period: HistoryPeriod): Prom
       .map((row) => {
         const date = String(row.date ?? "").slice(0, 10);
         const close = normalizeToVndUnit(num(row.close));
+        const open = normalizeToVndUnit(num(row.open));
+        const high = normalizeToVndUnit(num(row.high));
+        const low = normalizeToVndUnit(num(row.low));
         const volume = Math.max(0, Math.round(num(row.nmVolume) || num(row.volume) || 0));
-        return { date, close, volume };
+        return { date, open, high, low, close, volume };
       })
       .filter((p) => p.date && Number.isFinite(p.close) && p.close > 0);
     if (!points.length) return null;

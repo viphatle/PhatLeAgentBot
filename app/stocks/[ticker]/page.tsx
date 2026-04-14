@@ -9,6 +9,9 @@ type Period = "week" | "month" | "quarter" | "half" | "year";
 
 type HistoryPoint = {
   date: string;
+  open: number;
+  high: number;
+  low: number;
   close: number;
   volume: number;
 };
@@ -359,7 +362,7 @@ function NewsSection({ symbol }: { symbol: string }) {
   );
 }
 
-function PriceChart({
+function CandlestickChart({
   points,
   maSeries,
   support,
@@ -371,14 +374,16 @@ function PriceChart({
   resistance?: number;
 }) {
   const width = 920;
-  const height = 360;
+  const height = 420;
   const left = 70;
-  const right = 38;
-  const top = 24;
-  const bottom = 48;
-  const values = points.map((p) => p.close);
+  const right = 80;
+  const top = 40;
+  const bottom = 60;
+  
+  // Calculate min/max from OHLC for proper scaling
+  const allPrices = points.flatMap(p => [p.open, p.high, p.low, p.close]);
   const maValues = maSeries.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-  const allValues = maValues.length ? [...values, ...maValues] : values;
+  const allValues = [...allPrices, ...maValues];
   
   // Include support/resistance in range calculation
   if (support && Number.isFinite(support)) allValues.push(support);
@@ -389,19 +394,22 @@ function PriceChart({
   const range = Math.max(1, max - min);
   const chartW = width - left - right;
   const chartH = height - top - bottom;
-  const dx = chartW / Math.max(1, points.length - 1);
+  const candleW = Math.max(2, (chartW / points.length) * 0.7);
+  const gap = chartW / points.length;
 
   const yAt = (v: number) => top + chartH - ((v - min) / range) * chartH;
-  const xAt = (i: number) => left + i * dx;
+  const xAt = (i: number) => left + i * gap + gap / 2;
 
   const yTicks = axisTicks(min, max, 6);
   const xTickIndexes = [0, Math.floor((points.length - 1) / 2), points.length - 1].filter(
     (v, i, a) => a.indexOf(v) === i,
   );
 
-  const pathD = points
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${xAt(i)} ${yAt(p.close)}`)
-    .join(" ");
+  // Find highest and lowest points for labels
+  const highestPoint = points.reduce((max, p) => p.high > max.high ? p : max, points[0]);
+  const lowestPoint = points.reduce((min, p) => p.low < min.low ? p : min, points[0]);
+  const highestIdx = points.indexOf(highestPoint);
+  const lowestIdx = points.indexOf(lowestPoint);
 
   const maPathD = maSeries
     .map((v, i) => (v != null ? `${i === 0 || maSeries[i - 1] == null ? "M" : "L"} ${xAt(i)} ${yAt(v)}` : ""))
@@ -409,38 +417,70 @@ function PriceChart({
     .join(" ");
 
   const lastPrice = points[points.length - 1]?.close;
-  const up = points.length > 1 ? lastPrice >= points[0].close : true;
-  const priceColor = up ? "#34d399" : "#fb7185";
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 overflow-hidden">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-bold text-slate-300">📈 Đồ thị giá đóng cửa</h3>
-        <div className="flex items-center gap-3 text-xs">
+      {/* Header with Legend */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 className="text-sm font-bold text-slate-300">📈 Biểu đồ nến Nhật</h3>
+          <p className="text-[10px] text-slate-500 mt-0.5">OHLC: Mở cửa - Cao nhất - Thấp nhất - Đóng cửa</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-xs">
           <span className="flex items-center gap-1">
-            <span className="w-3 h-0.5 bg-emerald-400 rounded"></span>
-            <span className="text-slate-500">Giá</span>
+            <span className="w-3 h-3 bg-emerald-500/80 rounded-sm"></span>
+            <span className="text-slate-500">Tăng</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-3 h-3 bg-rose-500/80 rounded-sm"></span>
+            <span className="text-slate-500">Giảm</span>
           </span>
           <span className="flex items-center gap-1">
             <span className="w-3 h-0.5 bg-blue-400 rounded"></span>
             <span className="text-slate-500">MA</span>
           </span>
           {support && (
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-0.5 bg-emerald-600 rounded border-b border-dashed"></span>
-              <span className="text-slate-500">Support</span>
+            <span className="flex items-center gap-1" title="Vùng giá cổ phiếu có xu hướng dừng giảm và có thể bật tăng">
+              <span className="w-3 h-0.5 bg-emerald-500 rounded border-b border-dashed"></span>
+              <span className="text-emerald-400 font-medium">S - Hỗ trợ</span>
             </span>
           )}
           {resistance && (
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-0.5 bg-rose-600 rounded border-b border-dashed"></span>
-              <span className="text-slate-500">Resistance</span>
+            <span className="flex items-center gap-1" title="Vùng giá cổ phiếu có xu hướng dừng tăng và có thể điều chỉnh">
+              <span className="w-3 h-0.5 bg-rose-500 rounded border-b border-dashed"></span>
+              <span className="text-rose-400 font-medium">R - Kháng cự</span>
             </span>
           )}
         </div>
       </div>
+
+      {/* Support/Resistance Explanation */}
+      {(support || resistance) && (
+        <div className="mb-4 p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 text-xs space-y-1.5">
+          {support && (
+            <div className="flex items-start gap-2">
+              <span className="text-emerald-400 font-bold mt-0.5">S</span>
+              <div>
+                <span className="text-emerald-400 font-medium">Hỗ trợ ({formatStockPrice(support)}):</span>
+                <span className="text-slate-400 ml-1">Vùng giá cổ phiếu có xu hướng dừng giảm và có thể bật tăng. Khi giá chạm vùng S và có tín hiệu đảo chiều, có thể cân nhắc mua vào.</span>
+              </div>
+            </div>
+          )}
+          {resistance && (
+            <div className="flex items-start gap-2">
+              <span className="text-rose-400 font-bold mt-0.5">R</span>
+              <div>
+                <span className="text-rose-400 font-medium">Kháng cự ({formatStockPrice(resistance)}):</span>
+                <span className="text-slate-400 ml-1">Vùng giá cổ phiếu có xu hướng dừng tăng và có thể điều chỉnh. Khi giá chạm vùng R và có tín hiệu yếu, có thể cân nhắc chốt lời.</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Chart */}
       <div className="overflow-x-auto">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ minWidth: 600 }}>
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ minWidth: 700 }}>
           {/* Grid lines */}
           {yTicks.map((t, i) => {
             const y = yAt(t);
@@ -457,38 +497,107 @@ function PriceChart({
           {/* Support/Resistance lines */}
           {support && (
             <>
-              <line x1={left} y1={yAt(support)} x2={width - right} y2={yAt(support)} stroke="#059669" strokeWidth="1" strokeDasharray="4,4" opacity={0.6} />
-              <text x={width - right + 4} y={yAt(support) + 4} fontSize="10" fill="#059669" fontFamily="monospace">S</text>
+              <line x1={left} y1={yAt(support)} x2={width - right} y2={yAt(support)} stroke="#10b981" strokeWidth="1.5" strokeDasharray="5,5" opacity={0.7} />
+              <rect x={width - right + 5} y={yAt(support) - 10} width={28} height={20} rx={4} fill="#064e3b" opacity={0.9} />
+              <text x={width - right + 19} y={yAt(support) + 4} textAnchor="middle" fontSize="10" fill="#10b981" fontFamily="monospace" fontWeight="bold">S</text>
             </>
           )}
           {resistance && (
             <>
-              <line x1={left} y1={yAt(resistance)} x2={width - right} y2={yAt(resistance)} stroke="#dc2626" strokeWidth="1" strokeDasharray="4,4" opacity={0.6} />
-              <text x={width - right + 4} y={yAt(resistance) + 4} fontSize="10" fill="#dc2626" fontFamily="monospace">R</text>
+              <line x1={left} y1={yAt(resistance)} x2={width - right} y2={yAt(resistance)} stroke="#f43f5e" strokeWidth="1.5" strokeDasharray="5,5" opacity={0.7} />
+              <rect x={width - right + 5} y={yAt(resistance) - 10} width={28} height={20} rx={4} fill="#881337" opacity={0.9} />
+              <text x={width - right + 19} y={yAt(resistance) + 4} textAnchor="middle" fontSize="10" fill="#f43f5e" fontFamily="monospace" fontWeight="bold">R</text>
             </>
           )}
           
-          {/* Price line */}
-          <path d={pathD} fill="none" stroke={priceColor} strokeWidth={2} />
+          {/* Candlesticks */}
+          {points.map((p, i) => {
+            const x = xAt(i);
+            const isUp = p.close >= p.open;
+            const color = isUp ? "#10b981" : "#f43f5e";
+            const bodyTop = yAt(Math.max(p.open, p.close));
+            const bodyBottom = yAt(Math.min(p.open, p.close));
+            const bodyHeight = Math.max(1, bodyBottom - bodyTop);
+            const wickTop = yAt(p.high);
+            const wickBottom = yAt(p.low);
+            
+            return (
+              <g key={`candle-${i}`}>
+                {/* Wick (High-Low line) */}
+                <line 
+                  x1={x} y1={wickTop} x2={x} y2={wickBottom} 
+                  stroke={color} strokeWidth={1} opacity={0.8}
+                />
+                {/* Body (Open-Close rectangle) */}
+                <rect 
+                  x={x - candleW/2} y={bodyTop} 
+                  width={candleW} height={bodyHeight} 
+                  fill={isUp ? color : color} 
+                  opacity={isUp ? 0.9 : 0.8}
+                  rx={1}
+                />
+              </g>
+            );
+          })}
           
           {/* MA line */}
-          {maPathD && <path d={maPathD} fill="none" stroke="#60a5fa" strokeWidth={1.5} opacity={0.8} />}
+          {maPathD && <path d={maPathD} fill="none" stroke="#60a5fa" strokeWidth={1.5} opacity={0.9} />}
+          
+          {/* High/Low labels */}
+          <g>
+            <line x1={xAt(highestIdx)} y1={yAt(highestPoint.high)} x2={xAt(highestIdx) + 30} y2={yAt(highestPoint.high)} stroke="#fbbf24" strokeWidth={1} strokeDasharray="2,2" />
+            <rect x={xAt(highestIdx) + 30} y={yAt(highestPoint.high) - 12} width={70} height={24} rx={4} fill="rgba(251,191,36,0.15)" stroke="#fbbf24" strokeWidth={1} />
+            <text x={xAt(highestIdx) + 65} y={yAt(highestPoint.high) + 4} textAnchor="middle" fontSize="11" fill="#fbbf24" fontFamily="monospace" fontWeight="bold">
+              Đỉnh: {formatStockPrice(highestPoint.high)}
+            </text>
+          </g>
+          <g>
+            <line x1={xAt(lowestIdx)} y1={yAt(lowestPoint.low)} x2={xAt(lowestIdx) + 30} y2={yAt(lowestPoint.low)} stroke="#60a5fa" strokeWidth={1} strokeDasharray="2,2" />
+            <rect x={xAt(lowestIdx) + 30} y={yAt(lowestPoint.low) - 12} width={75} height={24} rx={4} fill="rgba(96,165,250,0.15)" stroke="#60a5fa" strokeWidth={1} />
+            <text x={xAt(lowestIdx) + 67} y={yAt(lowestPoint.low) + 4} textAnchor="middle" fontSize="11" fill="#60a5fa" fontFamily="monospace" fontWeight="bold">
+              Đáy: {formatStockPrice(lowestPoint.low)}
+            </text>
+          </g>
           
           {/* X-axis labels */}
           {xTickIndexes.map((idx) => {
             const x = xAt(idx);
             return (
-              <text key={`xt-${idx}`} x={x} y={height - 16} textAnchor="middle" fontSize="11" fill="#64748b" fontFamily="monospace">
+              <text key={`xt-${idx}`} x={x} y={height - 20} textAnchor="middle" fontSize="11" fill="#64748b" fontFamily="monospace">
                 {dateShort(points[idx].date)}
               </text>
             );
           })}
           
           {/* Current price label */}
-          <text x={xAt(points.length - 1) + 8} y={yAt(lastPrice) - 8} fontSize="11" fill={priceColor} fontWeight="bold" fontFamily="monospace">
-            {formatStockPrice(lastPrice)}
-          </text>
+          <g>
+            <line x1={xAt(points.length - 1)} y1={yAt(lastPrice)} x2={xAt(points.length - 1) + 20} y2={yAt(lastPrice)} stroke="#e2e8f0" strokeWidth={1} />
+            <rect x={xAt(points.length - 1) + 20} y={yAt(lastPrice) - 12} width={60} height={24} rx={4} fill="rgba(226,232,240,0.15)" stroke="#e2e8f0" strokeWidth={1} />
+            <text x={xAt(points.length - 1) + 50} y={yAt(lastPrice) + 4} textAnchor="middle" fontSize="11" fill="#e2e8f0" fontFamily="monospace" fontWeight="bold">
+              {formatStockPrice(lastPrice)}
+            </text>
+          </g>
         </svg>
+      </div>
+      
+      {/* OHLC Summary */}
+      <div className="mt-4 grid grid-cols-4 gap-2 text-xs">
+        <div className="p-2 rounded bg-slate-800/50 text-center">
+          <div className="text-slate-500 mb-1">Mở cửa</div>
+          <div className="font-mono text-slate-300">{formatStockPrice(points[points.length - 1]?.open)}</div>
+        </div>
+        <div className="p-2 rounded bg-slate-800/50 text-center">
+          <div className="text-slate-500 mb-1">Cao nhất</div>
+          <div className="font-mono text-emerald-400">{formatStockPrice(points[points.length - 1]?.high)}</div>
+        </div>
+        <div className="p-2 rounded bg-slate-800/50 text-center">
+          <div className="text-slate-500 mb-1">Thấp nhất</div>
+          <div className="font-mono text-rose-400">{formatStockPrice(points[points.length - 1]?.low)}</div>
+        </div>
+        <div className="p-2 rounded bg-slate-800/50 text-center">
+          <div className="text-slate-500 mb-1">Đóng cửa</div>
+          <div className="font-mono text-slate-300">{formatStockPrice(points[points.length - 1]?.close)}</div>
+        </div>
       </div>
     </div>
   );
@@ -759,7 +868,7 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
 
           {/* Charts */}
           <div className="space-y-4">
-            <PriceChart 
+            <CandlestickChart 
               points={data.points} 
               maSeries={data.indicators.ma_series}
               support={data.forecast.support_level}
