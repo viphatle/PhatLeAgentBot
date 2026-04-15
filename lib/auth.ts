@@ -1,9 +1,9 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { getJsonValue, setJsonValue, storageReady } from "./kv";
+import { createClient } from "@supabase/supabase-js";
 import { createSessionToken, type SessionPayload, type SessionRole, verifySessionToken } from "./session";
 
-const USERS_KEY = "st:users";
-const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
 
 export type AuthUser = {
   id: string;
@@ -36,17 +36,54 @@ export function authSecret() {
   return process.env.AUTH_SECRET?.trim() ?? "";
 }
 
+function hasConfig() {
+  return Boolean(authSecret() && supabaseUrl && supabaseKey);
+}
+
+function getClient() {
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Thiếu cấu hình Supabase");
+  }
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false },
+  });
+}
+
 export function authConfigured() {
-  return Boolean(authSecret() && storageReady());
+  return hasConfig();
 }
 
 export async function getUsers() {
-  const users = await getJsonValue<AuthUser[]>(USERS_KEY);
-  return Array.isArray(users) ? users : [];
+  if (!hasConfig()) return [];
+  const supabase = getClient();
+  const { data, error } = await supabase.from("users").select("*");
+  if (error) {
+    console.error("getUsers error:", error);
+    return [];
+  }
+  return data?.map((u: Record<string, unknown>) => ({
+    id: String(u.id),
+    password_hash: String(u.password_hash),
+    role: String(u.role) as SessionRole,
+    created_at: String(u.created_at),
+  })) ?? [];
 }
 
 async function saveUsers(users: AuthUser[]) {
-  await setJsonValue(USERS_KEY, users);
+  const supabase = getClient();
+  // Xóa tất cả và insert mới
+  await supabase.from("users").delete().neq("id", "placeholder");
+  if (users.length > 0) {
+    const { error } = await supabase.from("users").insert(
+      users.map((u) => ({
+        id: u.id,
+        password_hash: u.password_hash,
+        role: u.role,
+        created_at: u.created_at,
+      }))
+    );
+    if (error) throw error;
+  }
 }
 
 export async function ensureBootstrapAdmin() {
@@ -79,40 +116,91 @@ export async function createUser(input: { id: string; password: string; role?: S
   if (password.length < 8) throw new Error("Mật khẩu tối thiểu 8 ký tự.");
 
   const users = await getUsers();
-  const exists = users.some((u) => u.id === id);
-  if (exists) throw new Error("Tài khoản đã tồn tại.");
+  if (users.some((u) => u.id === id)) {
+    throw new Error("Tài khoản đã tồn tại.");
+  }
 
-  const user: AuthUser = {
+  const newUser: AuthUser = {
     id,
     password_hash: hashPassword(password),
     role,
     created_at: new Date().toISOString(),
   };
-  users.push(user);
-  await saveUsers(users);
-  return user;
+
+  await saveUsers([...users, newUser]);
+  return newUser;
 }
 
-export async function authenticateUser(id: string, password: string) {
-  const userId = normalizeUserId(id);
-  if (!userId || !password) return null;
-
+export async function deleteUser(id: string) {
+  const normalizedId = normalizeUserId(id);
   const users = await getUsers();
-  const user = users.find((u) => u.id === userId);
+  const filtered = users.filter((u) => u.id !== normalizedId);
+  if (filtered.length === users.length) {
+    throw new Error("Không tìm thấy tài khoản.");
+  }
+  await saveUsers(filtered);
+}
+
+export async function verifyUser(id: string, password: string) {
+  const normalizedId = normalizeUserId(id);
+  const users = await getUsers();
+  const user = users.find((u) => u.id === normalizedId);
   if (!user) return null;
   if (!verifyPassword(password, user.password_hash)) return null;
   return user;
 }
 
+export async function login(id: string, password: string): Promise<{ token: string; user: { id: string; role: SessionRole; created_at: string } } | null> {
+  const user = await verifyUser(id, password);
+  if (!user) return null;
+
+  const payload: SessionPayload = {
+    uid: user.id,
+    role: user.role,
+    exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7 ngày
+  };
+
+  const token = await createSessionToken(payload, authSecret());
+  return { 
+    token, 
+    user: {
+      id: user.id,
+      role: user.role,
+      created_at: user.created_at
+    }
+  };
+}
+
+export async function changePassword(id: string, currentPassword: string, newPassword: string) {
+  if (newPassword.length < 8) throw new Error("Mật khẩu mới tối thiểu 8 ký tự.");
+  const user = await verifyUser(id, currentPassword);
+  if (!user) throw new Error("Mật khẩu hiện tại không đúng.");
+
+  const users = await getUsers();
+  const idx = users.findIndex((u) => u.id === user.id);
+  if (idx === -1) throw new Error("Không tìm thấy tài khoản.");
+
+  users[idx].password_hash = hashPassword(newPassword);
+  await saveUsers(users);
+}
+
+// Alias for backward compatibility with API routes
+export const authenticateUser = verifyUser;
+
 export async function createSessionForUser(user: AuthUser) {
   const payload: SessionPayload = {
     uid: user.id,
     role: user.role,
-    exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
+    exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7 ngày
   };
   return createSessionToken(payload, authSecret());
 }
 
+// Re-export error class for API routes
+export { SupabaseRequiredError } from "./supabase";
+
+// Helper to verify session from cookie value
 export async function verifySessionFromCookie(cookieValue: string | undefined) {
+  const { verifySessionToken } = await import("./session");
   return verifySessionToken(cookieValue, authSecret());
 }

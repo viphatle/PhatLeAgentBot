@@ -120,25 +120,29 @@ async function migrate() {
   console.log("\n📅 Đang chuyển schedule events...");
   const events = await getRedisData<Array<{
     id: string;
-    title: string;
     date: string;
     time?: string;
     note?: string;
-    recurrence?: string;
+    recurrence?: { mode: string; weekdays?: number[]; month_day?: number };
     visibility?: "public" | "private";
     created_by?: string;
+    created_at?: string;
+    remind_1d_keys?: string[];
+    remind_1h_keys?: string[];
   }>>(KEYS.SCHEDULE_EVENTS);
   if (events && events.length > 0) {
     const { error } = await supabase.from("schedule_events").insert(
       events.map((e) => ({
         id: e.id,
-        title: e.title,
         date: e.date,
         time: e.time ?? null,
         note: e.note ?? null,
-        recurrence: e.recurrence ?? "none",
+        recurrence: e.recurrence ? JSON.stringify(e.recurrence) : '{"mode":"none"}',
         visibility: e.visibility ?? "private",
         created_by: e.created_by ?? null,
+        created_at: e.created_at ?? new Date().toISOString(),
+        remind_1d_keys: e.remind_1d_keys ? JSON.stringify(e.remind_1d_keys) : '[]',
+        remind_1h_keys: e.remind_1h_keys ? JSON.stringify(e.remind_1h_keys) : '[]',
       }))
     );
     if (error) {

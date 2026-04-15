@@ -1,12 +1,13 @@
 import { authenticateUser, authConfigured, createSessionForUser, ensureBootstrapAdmin } from "@/lib/auth";
+import { storageReady } from "@/lib/kv";
 import { AUTH_COOKIE_NAME } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  if (!authConfigured()) {
+  if (!authConfigured() || !storageReady()) {
     return Response.json(
-      { error: "Thiếu AUTH_SECRET hoặc REDIS_URL trong môi trường." },
+      { error: "Thiếu cấu hình AUTH_SECRET hoặc SUPABASE trong môi trường." },
       { status: 500 },
     );
   }

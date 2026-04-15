@@ -15,6 +15,12 @@ CREATE TABLE IF NOT EXISTS watchlist (
     id SERIAL PRIMARY KEY,
     symbol TEXT NOT NULL,
     buy_price NUMERIC,
+    display_name TEXT,
+    display_name_vi TEXT,
+    short_name TEXT,
+    exchange TEXT,
+    full_exchange TEXT,
+    yahoo_symbol TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(symbol)
@@ -32,13 +38,14 @@ CREATE TABLE IF NOT EXISTS app_settings (
 -- Bảng schedule_events (thay thế st:schedule-events trong Redis)
 CREATE TABLE IF NOT EXISTS schedule_events (
     id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
     date TEXT NOT NULL,
     time TEXT,
     note TEXT,
-    recurrence TEXT DEFAULT 'none',
+    recurrence JSONB DEFAULT '{"mode":"none"}',
     visibility TEXT DEFAULT 'private',
     created_by TEXT,
+    remind_1d_keys JSONB DEFAULT '[]',
+    remind_1h_keys JSONB DEFAULT '[]',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

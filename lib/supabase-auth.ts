@@ -150,7 +150,7 @@ export async function verifyUser(id: string, password: string) {
   return user;
 }
 
-export async function login(id: string, password: string): Promise<{ token: string; user: Omit<AuthUser, "password_hash"> } | null> {
+export async function login(id: string, password: string): Promise<{ token: string; user: { id: string; role: SessionRole; created_at: string } } | null> {
   const user = await verifyUser(id, password);
   if (!user) return null;
 
@@ -160,9 +160,15 @@ export async function login(id: string, password: string): Promise<{ token: stri
     exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7 ngày
   };
 
-  const token = createSessionToken(payload, authSecret());
-  const { password_hash: _, ...userWithoutHash } = user;
-  return { token, user: userWithoutHash };
+  const token = await createSessionToken(payload, authSecret());
+  return { 
+    token, 
+    user: {
+      id: user.id,
+      role: user.role,
+      created_at: user.created_at
+    }
+  };
 }
 
 export async function changePassword(id: string, currentPassword: string, newPassword: string) {

@@ -1,4 +1,4 @@
-import { getSettings, KvRequiredError, setSettings } from "@/lib/kv";
+import { getSettings, SupabaseRequiredError, setSettings } from "@/lib/kv";
 import { verifySessionToken } from "@/lib/session";
 import { authSecret } from "@/lib/auth";
 import type { User } from "@/lib/types";
@@ -113,9 +113,9 @@ export async function POST(req: Request) {
     
     await setSettings(patch);
     return GET(req);
-  } catch (e) {
-    if (e instanceof KvRequiredError) {
-      return Response.json({ error: e.message }, { status: 503 });
+  } catch (e: unknown) {
+    if (e instanceof SupabaseRequiredError) {
+      return Response.json({ error: (e as Error).message }, { status: 503 });
     }
     throw e;
   }

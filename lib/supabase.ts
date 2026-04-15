@@ -39,10 +39,28 @@ export async function getWatchlist(): Promise<WatchItem[]> {
     console.error("getWatchlist error:", error);
     return [];
   }
-  return data?.map((item: { id: number; symbol: string; buy_price: number | null }) => ({
+  return data?.map((item: { 
+    id: number; 
+    symbol: string; 
+    buy_price: number | null;
+    display_name?: string;
+    display_name_vi?: string;
+    short_name?: string;
+    exchange?: string;
+    full_exchange?: string;
+    yahoo_symbol?: string;
+    created_at: string;
+  }) => ({
     id: String(item.id),
     symbol: item.symbol,
     buy_price: item.buy_price ?? undefined,
+    display_name: item.display_name || item.symbol,
+    display_name_vi: item.display_name_vi,
+    short_name: item.short_name,
+    exchange: item.exchange,
+    full_exchange: item.full_exchange,
+    yahoo_symbol: item.yahoo_symbol,
+    created_at: item.created_at || new Date().toISOString(),
   })) ?? [];
 }
 
@@ -123,13 +141,15 @@ export async function getScheduleEvents(): Promise<ScheduleEvent[]> {
   }
   return data?.map((e: Record<string, unknown>) => ({
     id: String(e.id),
-    title: String(e.title),
     date: String(e.date),
-    time: e.time ? String(e.time) : undefined,
-    note: e.note ? String(e.note) : undefined,
-    recurrence: String(e.recurrence ?? "none"),
+    time: e.time ? String(e.time) : "",
+    note: e.note ? String(e.note) : "",
+    recurrence: e.recurrence ? JSON.parse(String(e.recurrence)) : { mode: "none" as const },
     visibility: (e.visibility as "public" | "private") ?? "private",
     created_by: e.created_by ? String(e.created_by) : undefined,
+    created_at: e.created_at ? String(e.created_at) : new Date().toISOString(),
+    remind_1d_keys: e.remind_1d_keys ? JSON.parse(String(e.remind_1d_keys)) : [],
+    remind_1h_keys: e.remind_1h_keys ? JSON.parse(String(e.remind_1h_keys)) : [],
   })) ?? [];
 }
 
@@ -144,13 +164,15 @@ export async function setScheduleEvents(next: ScheduleEvent[]) {
     const { error } = await supabase.from("schedule_events").insert(
       next.map((e) => ({
         id: e.id,
-        title: e.title,
         date: e.date,
         time: e.time,
         note: e.note,
-        recurrence: e.recurrence ?? "none",
+        recurrence: JSON.stringify(e.recurrence ?? { mode: "none" }),
         visibility: e.visibility ?? "private",
         created_by: e.created_by,
+        created_at: e.created_at ?? new Date().toISOString(),
+        remind_1d_keys: JSON.stringify(e.remind_1d_keys ?? []),
+        remind_1h_keys: JSON.stringify(e.remind_1h_keys ?? []),
       }))
     );
     if (error) throw error;

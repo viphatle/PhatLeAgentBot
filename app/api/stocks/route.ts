@@ -1,4 +1,4 @@
-import { getWatchlist, KvRequiredError, setWatchlist } from "@/lib/kv";
+import { getWatchlist, SupabaseRequiredError, setWatchlist } from "@/lib/kv";
 import { lookupCompanyNameVi } from "@/lib/company-vi";
 import type { WatchItem } from "@/lib/types";
 import { resolveYahooInstrument } from "@/lib/yahoo";
@@ -48,9 +48,9 @@ export async function POST(req: Request) {
     };
     await setWatchlist([...list, item]);
     return Response.json(item);
-  } catch (e) {
-    if (e instanceof KvRequiredError) {
-      return Response.json({ error: e.message }, { status: 503 });
+  } catch (e: unknown) {
+    if (e instanceof SupabaseRequiredError) {
+      return Response.json({ error: (e as Error).message }, { status: 503 });
     }
     throw e;
   }
@@ -70,9 +70,9 @@ export async function DELETE(req: Request) {
     }
     await setWatchlist(next);
     return Response.json({ ok: true });
-  } catch (e) {
-    if (e instanceof KvRequiredError) {
-      return Response.json({ error: e.message }, { status: 503 });
+  } catch (e: unknown) {
+    if (e instanceof SupabaseRequiredError) {
+      return Response.json({ error: (e as Error).message }, { status: 503 });
     }
     throw e;
   }

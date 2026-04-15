@@ -1,4 +1,4 @@
-import { getScheduleEvents, KvRequiredError, setScheduleEvents } from "@/lib/kv";
+import { getScheduleEvents, SupabaseRequiredError, setScheduleEvents } from "@/lib/kv";
 import { sendScheduleCreatedNotice } from "@/lib/schedule-reminders";
 import type { ScheduleEvent } from "@/lib/types";
 import { verifySessionToken } from "@/lib/session";
@@ -48,9 +48,9 @@ export async function GET(req: Request) {
       };
     });
     return Response.json({ events: eventsWithMeta, currentUser: currentUser?.uid ?? null });
-  } catch (e) {
-    if (e instanceof KvRequiredError) {
-      return Response.json({ error: e.message }, { status: 503 });
+  } catch (e: unknown) {
+    if (e instanceof SupabaseRequiredError) {
+      return Response.json({ error: (e as Error).message }, { status: 503 });
     }
     throw e;
   }
@@ -124,9 +124,9 @@ export async function POST(req: Request) {
     await setScheduleEvents(next);
     void sendScheduleCreatedNotice(event).catch(() => {});
     return Response.json({ ok: true, event, events: next });
-  } catch (e) {
-    if (e instanceof KvRequiredError) {
-      return Response.json({ error: e.message }, { status: 503 });
+  } catch (e: unknown) {
+    if (e instanceof SupabaseRequiredError) {
+      return Response.json({ error: (e as Error).message }, { status: 503 });
     }
     throw e;
   }
@@ -145,9 +145,9 @@ export async function DELETE(req: Request) {
     }
     await setScheduleEvents(next);
     return Response.json({ ok: true, events: next });
-  } catch (e) {
-    if (e instanceof KvRequiredError) {
-      return Response.json({ error: e.message }, { status: 503 });
+  } catch (e: unknown) {
+    if (e instanceof SupabaseRequiredError) {
+      return Response.json({ error: (e as Error).message }, { status: 503 });
     }
     throw e;
   }
