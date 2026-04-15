@@ -1,6 +1,19 @@
-import { getClient, storageReady } from "@/lib/supabase";
+import { storageReady, SupabaseRequiredError } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+
+function getClient() {
+  if (!supabaseUrl || !supabaseKey) {
+    throw new SupabaseRequiredError();
+  }
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false },
+  });
+}
 
 export async function GET() {
   if (!storageReady()) {
