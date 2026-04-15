@@ -256,3 +256,146 @@ export async function getJsonValue<T>(key: string): Promise<T | null> {
 export async function setJsonValue(key: string, value: unknown) {
   // Không dùng cho Supabase - dùng các hàm cụ thể
 }
+
+// Forecast History Tracking
+export type ForecastHistoryRecord = {
+  id?: number;
+  symbol: string;
+  period: string;
+  forecast_date: string;
+  actual_price: number;
+  predicted_scenario: "bull" | "base" | "bear";
+  predicted_probability: number;
+  bull_price: number;
+  bull_probability: number;
+  base_price: number;
+  base_probability: number;
+  bear_price: number;
+  bear_probability: number;
+  actual_result_scenario?: "bull" | "base" | "bear";
+  actual_price_end?: number;
+  accuracy?: number;
+  verified?: boolean;
+};
+
+export async function saveForecastHistory(record: ForecastHistoryRecord) {
+  if (!storageReady()) return;
+  const supabase = getClient();
+  await supabase.from("forecast_history").upsert({
+    symbol: record.symbol.toUpperCase().trim(),
+    period: record.period,
+    forecast_date: record.forecast_date,
+    actual_price: record.actual_price,
+    predicted_scenario: record.predicted_scenario,
+    predicted_probability: record.predicted_probability,
+    bull_price: record.bull_price,
+    bull_probability: record.bull_probability,
+    base_price: record.base_price,
+    base_probability: record.base_probability,
+    bear_price: record.bear_price,
+    bear_probability: record.bear_probability,
+  }, {
+    onConflict: "symbol,period,forecast_date"
+  });
+}
+
+export async function getForecastHistory(symbol: string, period: string, limit: number = 10): Promise<ForecastHistoryRecord[]> {
+  if (!storageReady()) return [];
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("forecast_history")
+    .select("*")
+    .eq("symbol", symbol.toUpperCase().trim())
+    .eq("period", period)
+    .order("forecast_date", { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error("getForecastHistory error:", error);
+    return [];
+  }
+  return (data || []) as ForecastHistoryRecord[];
+}
+
+export async function updateForecastResult(
+  symbol: string, 
+  period: string, 
+  forecastDate: string,
+  actualScenario: "bull" | "base" | "bear",
+  actualPriceEnd: number,
+  accuracy: number
+) {
+  if (!storageReady()) return;
+  const supabase = getClient();
+  await supabase.from("forecast_history").update({
+    actual_result_scenario: actualScenario,
+    actual_price_end: actualPriceEnd,
+    accuracy: accuracy,
+    verified: true,
+    verified_at: new Date().toISOString(),
+  })
+  .eq("symbol", symbol.toUpperCase().trim())
+  .eq("period", period)
+  .eq("forecast_date", forecastDate);
+}
+
+// Forecast Accuracy Stats
+export type ForecastAccuracyStats = {
+  symbol: string;
+  period: string;
+  total_forecasts: number;
+  correct_predictions: number;
+  avg_accuracy: number;
+  accuracy_rate: number; // Tỷ lệ đoán đúng kịch bản
+};
+
+export async function getForecastAccuracy(symbol: string, period: string): Promise<ForecastAccuracyStats | null> {
+  if (!storageReady()) return null;
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("forecast_accuracy")
+    .select("*")
+    .eq("symbol", symbol.toUpperCase().trim())
+    .eq("period", period)
+    .single();
+  if (error || !data) return null;
+  return {
+    symbol: data.symbol,
+    period: data.period,
+    total_forecasts: data.total_forecasts,
+    correct_predictions: data.correct_predictions,
+    avg_accuracy: data.avg_accuracy,
+    accuracy_rate: data.total_forecasts > 0 ? (data.correct_predictions / data.total_forecasts) * 100 : 0,
+  };
+}
+
+export async function updateForecastAccuracy(symbol: string, period: string, isCorrect: boolean, accuracyPercent: number) {
+  if (!storageReady()) return;
+  const supabase = getClient();
+  
+  // Lấy stats hiện tại
+  const current = await getForecastAccuracy(symbol, period);
+  
+  if (current) {
+    const newTotal = current.total_forecasts + 1;
+    const newCorrect = current.correct_predictions + (isCorrect ? 1 : 0);
+    const newAvgAccuracy = (current.avg_accuracy * current.total_forecasts + accuracyPercent) / newTotal;
+    
+    await supabase.from("forecast_accuracy").upsert({
+      symbol: symbol.toUpperCase().trim(),
+      period,
+      total_forecasts: newTotal,
+      correct_predictions: newCorrect,
+      avg_accuracy: newAvgAccuracy,
+      last_updated: new Date().toISOString(),
+    });
+  } else {
+    await supabase.from("forecast_accuracy").insert({
+      symbol: symbol.toUpperCase().trim(),
+      period,
+      total_forecasts: 1,
+      correct_predictions: isCorrect ? 1 : 0,
+      avg_accuracy: accuracyPercent,
+      last_updated: new Date().toISOString(),
+    });
+  }
+}

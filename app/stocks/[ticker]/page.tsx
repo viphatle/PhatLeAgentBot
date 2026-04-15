@@ -99,6 +99,39 @@ function getTrendBg(trend: number): string {
   return "bg-rose-500/20 border-rose-500/40";
 }
 
+// Helper to determine which scenario is currently playing out
+function getActiveScenario(
+  currentPrice: number,
+  scenarios: ForecastScenario[]
+): "bull" | "base" | "bear" {
+  if (!scenarios || scenarios.length < 3) return "base";
+  
+  const bull = scenarios.find(s => s.name === "bull");
+  const base = scenarios.find(s => s.name === "base");
+  const bear = scenarios.find(s => s.name === "bear");
+  
+  if (!bull || !base || !bear) return "base";
+  
+  // If price is moving toward bull (above base)
+  if (currentPrice > base.price * 1.02) {
+    return "bull";
+  }
+  // If price is moving toward bear (below base)
+  if (currentPrice < base.price * 0.98) {
+    return "bear";
+  }
+  
+  // Otherwise, pick the closest scenario by percentage distance
+  const bullDiff = Math.abs(currentPrice - bull.price) / bull.price;
+  const baseDiff = Math.abs(currentPrice - base.price) / base.price;
+  const bearDiff = Math.abs(currentPrice - bear.price) / bear.price;
+  
+  const minDiff = Math.min(bullDiff, baseDiff, bearDiff);
+  if (minDiff === bullDiff) return "bull";
+  if (minDiff === bearDiff) return "bear";
+  return "base";
+}
+
 function StatCard({ 
   label, 
   value, 
@@ -196,23 +229,41 @@ function TechnicalIndicator({
   );
 }
 
-function ScenarioCard({ scenario, currentPrice }: { scenario: ForecastScenario; currentPrice: number }) {
+function ScenarioCard({ 
+  scenario, 
+  currentPrice, 
+  isActive,
+  accuracy
+}: { 
+  scenario: ForecastScenario; 
+  currentPrice: number;
+  isActive?: boolean;
+  accuracy?: number;
+}) {
   const change = ((scenario.price - currentPrice) / currentPrice) * 100;
   const isPositive = change >= 0;
   
-  const colorClass = scenario.name === "bull" 
-    ? "border-emerald-500/30 bg-emerald-500/10" 
+  // Active scenario has stronger colors and glow effect
+  const colorClass = isActive
+    ? scenario.name === "bull"
+      ? "border-emerald-500/60 bg-emerald-500/20 shadow-lg shadow-emerald-500/20 ring-2 ring-emerald-500/40"
+      : scenario.name === "bear"
+      ? "border-rose-500/60 bg-rose-500/20 shadow-lg shadow-rose-500/20 ring-2 ring-rose-500/40"
+      : "border-blue-500/60 bg-blue-500/20 shadow-lg shadow-blue-500/20 ring-2 ring-blue-500/40"
+    : scenario.name === "bull" 
+    ? "border-emerald-500/30 bg-emerald-500/10 opacity-70"
     : scenario.name === "bear"
-    ? "border-rose-500/30 bg-rose-500/10"
+    ? "border-rose-500/30 bg-rose-500/10 opacity-70"
     : "border-blue-500/30 bg-blue-500/10";
     
   const probColor = scenario.probability > 50 ? "text-emerald-400" : scenario.probability > 30 ? "text-blue-400" : "text-slate-400";
 
   return (
-    <div className={`rounded-xl border ${colorClass} p-4`}>
+    <div className={`rounded-xl border ${colorClass} p-4 transition-all duration-300 ${isActive ? 'scale-[1.02]' : ''}`}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs uppercase tracking-wider font-bold text-slate-400">
+        <span className={`text-xs uppercase tracking-wider font-bold ${isActive ? 'text-white' : 'text-slate-400'}`}>
           {scenario.name === "bull" ? "🐂 Bull Case" : scenario.name === "bear" ? "🐻 Bear Case" : "📊 Base Case"}
+          {isActive && <span className="ml-2 text-[10px] bg-white/20 px-1.5 py-0.5 rounded">Đang diễn ra</span>}
         </span>
         <span className={`text-xs font-mono ${probColor}`}>{scenario.probability}% prob</span>
       </div>
@@ -222,7 +273,12 @@ function ScenarioCard({ scenario, currentPrice }: { scenario: ForecastScenario; 
       <div className={`text-sm font-mono ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
         {isPositive ? "+" : ""}{formatPercent(change)}
       </div>
-      <p className="text-xs text-slate-500 mt-2">{scenario.description}</p>
+      <p className={`text-xs mt-2 ${isActive ? 'text-slate-300' : 'text-slate-500'}`}>{scenario.description}</p>
+      {accuracy !== undefined && accuracy > 0 && (
+        <div className="mt-2 text-[10px] text-slate-400">
+          Độ chính xác lịch sử: {accuracy.toFixed(1)}%
+        </div>
+      )}
     </div>
   );
 }
@@ -986,15 +1042,23 @@ export default function StockDetailPage({ params }: { params: { ticker: string }
                 </span>
               </div>
               
-              <div className="space-y-3">
-                {data.forecast.scenarios?.map((scenario) => (
-                  <ScenarioCard 
-                    key={scenario.name} 
-                    scenario={scenario} 
-                    currentPrice={latest?.close ?? 0}
-                  />
-                ))}
-              </div>
+              {(() => {
+                const currentPrice = latest?.close ?? 0;
+                const activeScenario = getActiveScenario(currentPrice, data.forecast.scenarios);
+                
+                return (
+                  <div className="space-y-3">
+                    {data.forecast.scenarios?.map((scenario) => (
+                      <ScenarioCard 
+                        key={scenario.name} 
+                        scenario={scenario} 
+                        currentPrice={currentPrice}
+                        isActive={scenario.name === activeScenario}
+                      />
+                    ))}
+                  </div>
+                );
+              })()}
 
               <div className="mt-4 p-3 rounded-lg border border-slate-700/50 bg-slate-800/30">
                 <div className="flex items-center justify-between text-sm">

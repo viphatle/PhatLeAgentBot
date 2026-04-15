@@ -82,6 +82,51 @@ CREATE TABLE IF NOT EXISTS files (
     uploaded_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Bảng lịch sử dự báo (để tracking độ chính xác)
+CREATE TABLE IF NOT EXISTS forecast_history (
+    id SERIAL PRIMARY KEY,
+    symbol TEXT NOT NULL,
+    period TEXT NOT NULL,
+    forecast_date TIMESTAMPTZ DEFAULT NOW(),
+    -- Giá thực tế tại thời điểm dự báo
+    actual_price NUMERIC NOT NULL,
+    -- Kịch bản được dự đoán là chủ đạo
+    predicted_scenario TEXT NOT NULL, -- 'bull', 'base', 'bear'
+    -- Xác suất của kịch bản được chọn
+    predicted_probability INTEGER NOT NULL,
+    -- Chi tiết các kịch bản
+    bull_price NUMERIC NOT NULL,
+    bull_probability INTEGER NOT NULL,
+    base_price NUMERIC NOT NULL,
+    base_probability INTEGER NOT NULL,
+    bear_price NUMERIC NOT NULL,
+    bear_probability INTEGER NOT NULL,
+    -- Kết quả (cập nhật sau khi hết kỳ)
+    actual_result_scenario TEXT, -- 'bull', 'base', 'bear' (so sánh với dự báo)
+    actual_price_end NUMERIC, -- Giá thực tế cuối kỳ
+    accuracy NUMERIC, -- % chênh lệch giữa dự báo và thực tế
+    verified BOOLEAN DEFAULT FALSE,
+    verified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(symbol, period, forecast_date)
+);
+
+-- Index cho truy vấn nhanh
+CREATE INDEX IF NOT EXISTS idx_forecast_history_symbol ON forecast_history(symbol);
+CREATE INDEX IF NOT EXISTS idx_forecast_history_period ON forecast_history(period);
+CREATE INDEX IF NOT EXISTS idx_forecast_history_date ON forecast_history(forecast_date);
+
+-- Bảng thống kê độ chính xác theo mã và kỳ
+CREATE TABLE IF NOT EXISTS forecast_accuracy (
+    symbol TEXT NOT NULL,
+    period TEXT NOT NULL,
+    total_forecasts INTEGER DEFAULT 0,
+    correct_predictions INTEGER DEFAULT 0,
+    avg_accuracy NUMERIC DEFAULT 0, -- Trung bình % sai lệch
+    last_updated TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (symbol, period)
+);
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE watchlist ENABLE ROW LEVEL SECURITY;
@@ -89,6 +134,8 @@ ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE schedule_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pnl_alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE forecasts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE forecast_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE forecast_accuracy ENABLE ROW LEVEL SECURITY;
 
 -- Tạo policies (cho phép đọc/ghi từ service role)
 CREATE POLICY "Allow all" ON users FOR ALL USING (true) WITH CHECK (true);
@@ -97,6 +144,8 @@ CREATE POLICY "Allow all" ON app_settings FOR ALL USING (true) WITH CHECK (true)
 CREATE POLICY "Allow all" ON schedule_events FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON pnl_alerts FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON forecasts FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON forecast_history FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON forecast_accuracy FOR ALL USING (true) WITH CHECK (true);
 
 -- Insert default settings
 INSERT INTO app_settings (id) VALUES (1) ON CONFLICT DO NOTHING;
