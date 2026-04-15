@@ -226,7 +226,7 @@ export function Dashboard() {
           )}
           {!storageOk && (
             <span className="inline-flex rounded-full border border-rose-500/50 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-400">
-              ⚠️ Redis not connected
+              ⚠️ Supabase not connected
             </span>
           )}
           {lastQuoteUpdate && (
